@@ -1,0 +1,29 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "AuthApplication",
+            "request": "launch",
+            "mainClass": "com.swift.AuthApplication",
+            "projectName": "mobileappdemo"
+        },
+        {
+            "type": "java",
+            "name": "AuthApplication",
+            "request": "launch",
+            "mainClass": "AuthApplication",
+            "projectName": "mobileappdemo"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-MobileappdemoApplication<mobileappdemo>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.swift.mobileappdemo.MobileappdemoApplication",
+            "projectName": "mobileappdemo",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=62077 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=mobileappdemo"
+        }
+    ]
+}
