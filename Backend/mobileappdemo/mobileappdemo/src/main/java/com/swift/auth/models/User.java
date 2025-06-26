@@ -1,7 +1,10 @@
 package com.swift.auth.models;
 
+import com.swift.wallet.models.Wallet;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -20,6 +23,15 @@ public class User {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Wallet> wallets = new ArrayList<>();
+
+    @Column(unique = true)
+    private String email;
+
+    @Column(unique = true)
+    private String phone;
+
     // Getters and setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -35,4 +47,13 @@ public class User {
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public List<Wallet> getWallets() { return wallets; }
+    public void setWallets(List<Wallet> wallets) { this.wallets = wallets; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 }
