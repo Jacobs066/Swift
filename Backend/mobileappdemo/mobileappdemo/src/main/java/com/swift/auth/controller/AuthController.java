@@ -2,6 +2,7 @@ package com.swift.auth.controller;
 
 import com.swift.auth.dto.LoginRequest;
 import com.swift.auth.dto.OtpRequest;
+import com.swift.auth.dto.SignupRequest;
 import com.swift.auth.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -9,14 +10,19 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AuthController {
-        @Autowired
+    @Autowired
     private AuthService authService;
 
-    @PostMapping("/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestBody LoginRequest request) {
-        return authService.sendOtp(request);
+    @PostMapping("/signup")
+    public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
+        return authService.signup(request);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        return authService.login(request);
     }
 
     @PostMapping("/verify-otp")

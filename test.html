@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 40px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .section h2 { color: #333; margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        input[type="email"], input[type="text"], input[type="password"] { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 6px; 
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 5px rgba(0,123,255,0.3); }
+        button { 
+            background: #007bff; 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 14px;
+            font-weight: bold;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { 
+            margin-top: 15px; 
+            padding: 12px; 
+            border-radius: 6px; 
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .note { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; padding: 10px; border-radius: 6px; margin-bottom: 20px; }
+        .flow-step { background: #e7f3ff; color: #0d6efd; border: 1px solid #b3d9ff; padding: 10px; border-radius: 6px; margin-bottom: 15px; }
+        .password-container { position: relative; }
+        .password-toggle { 
+            position: absolute; 
+            right: 10px; 
+            top: 50%; 
+            transform: translateY(-50%); 
+            background: none; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 16px; 
+            color: #666;
+            padding: 0;
+        }
+        .password-toggle:hover { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Authentication System Test</h1>
+        
+        <div class="note">
+            <strong>How it works:</strong>
+            <ol>
+                <li><strong>Sign Up:</strong> Create account with email/phone, username, and 8+ character password</li>
+                <li><strong>Login:</strong> Enter email/phone + password → OTP sent automatically to your email</li>
+                <li><strong>Verify:</strong> Enter the 6-digit OTP from your email to complete login</li>
+            </ol>
+        </div>
+
+        <!-- Signup Section -->
+        <div class="section">
+            <h2>📝 Step 1: Sign Up</h2>
+            <div class="form-group">
+                <label for="signupEmail">Email or Phone:</label>
+                <input type="text" id="signupEmail" placeholder="Enter your email or phone number">
+            </div>
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" placeholder="Enter your username">
+            </div>
+            <div class="form-group">
+                <label for="signupPassword">Password (8+ characters):</label>
+                <div class="password-container">
+                    <input type="password" id="signupPassword" placeholder="Enter password with at least 8 characters">
+                    <button type="button" class="password-toggle" onclick="togglePassword('signupPassword')">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password:</label>
+                <div class="password-container">
+                    <input type="password" id="confirmPassword" placeholder="Confirm your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')">👁️</button>
+                </div>
+            </div>
+            <button onclick="signup()">Sign Up</button>
+            <div id="signupResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Login Section -->
+        <div class="section">
+            <h2>🔑 Step 2: Login (OTP sent automatically)</h2>
+            <div class="flow-step">
+                <strong>💡 How it works:</strong> Enter your credentials below. If correct, a 6-digit OTP will be automatically sent to your email.
+            </div>
+            <div class="form-group">
+                <label for="loginEmail">Email or Phone:</label>
+                <input type="text" id="loginEmail" placeholder="Enter your email or phone number">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password:</label>
+                <div class="password-container">
+                    <input type="password" id="loginPassword" placeholder="Enter your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')">👁️</button>
+                </div>
+            </div>
+            <button onclick="login()">Login & Send OTP</button>
+            <div id="loginResult" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- OTP Verification Section -->
+        <div class="section">
+            <h2>✅ Step 3: Enter OTP from Email</h2>
+            <div class="flow-step">
+                <strong>📧 Check your email:</strong> After successful login, you'll receive a 6-digit OTP. Enter it below to complete authentication.
+            </div>
+            <div class="form-group">
+                <label for="otp">OTP (6 digits):</label>
+                <input type="text" id="otp" placeholder="Enter the 6-digit OTP from your email" maxlength="6">
+            </div>
+            <button onclick="verifyOtp()">Verify OTP & Complete Login</button>
+            <div id="verifyResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        async function signup() {
+            const emailOrPhone = document.getElementById('signupEmail').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const resultDiv = document.getElementById('signupResult');
+            
+            // Validate password
+            if (password.length < 8) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: Password must be at least 8 characters';
+                return;
+            }
+            
+            // Validate password confirmation
+            if (password !== confirmPassword) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: Passwords do not match';
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8081/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        emailOrPhone: emailOrPhone,
+                        username: username,
+                        password: password,
+                        confirmPassword: confirmPassword
+                    })
+                });
+                
+                const result = await response.text();
+                
+                resultDiv.style.display = 'block';
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ ' + result;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ ' + result;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error: ' + error.message;
+            }
+        }
+
+        async function login() {
+            const emailOrPhone = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const resultDiv = document.getElementById('loginResult');
+            
+            try {
+                const response = await fetch('http://localhost:8081/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        emailOrPhone: emailOrPhone,
+                        password: password
+                    })
+                });
+                
+                const result = await response.text();
+                
+                resultDiv.style.display = 'block';
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ ' + result + '\n📧 Check your email for the 6-digit OTP!';
+                    // Auto-fill the verify email field
+                    document.getElementById('verifyEmail').value = emailOrPhone;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ ' + result;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error: ' + error.message;
+            }
+        }
+
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const button = input.nextElementSibling;
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                button.textContent = '👁️';
+            }
+        }
+
+        async function verifyOtp() {
+            const otp = document.getElementById('otp').value;
+            const resultDiv = document.getElementById('verifyResult');
+            
+            // Get the email from the login step (stored when login was successful)
+            const loginEmail = document.getElementById('loginEmail').value;
+            
+            try {
+                const response = await fetch('http://localhost:8081/api/auth/verify-otp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        email: loginEmail,
+                        otp: otp
+                    })
+                });
+                
+                const result = await response.text();
+                
+                resultDiv.style.display = 'block';
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ ' + result;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ ' + result;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html> 

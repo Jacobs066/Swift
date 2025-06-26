@@ -1,7 +1,12 @@
 package com.swift.auth.dto;
 
 public class LoginRequest {
-        private String email;
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    private String emailOrPhone;
+    private String password;
+    
+    public String getEmailOrPhone() { return emailOrPhone; }
+    public void setEmailOrPhone(String emailOrPhone) { this.emailOrPhone = emailOrPhone; }
+    
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 }
