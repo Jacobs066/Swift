@@ -7,8 +7,8 @@ The Swift Wallet API provides a complete multi-currency wallet system with authe
 
 ## Authentication Flow
 1. **Signup** → Create account
-2. **Login** → Get OTP sent to email
-3. **Verify OTP** → Complete login
+2. **Login** → Choose between OTP or Biometric authentication
+3. **Verify** → Complete login with chosen method
 
 ---
 
@@ -42,7 +42,7 @@ Create a new user account.
 - Email/Phone must be unique
 - Username must be unique
 
-### 2. User Login
+### 2. User Login (OTP Method)
 **POST** `/api/auth/login`
 
 Login and receive OTP via email.
@@ -79,6 +79,122 @@ Complete login by verifying OTP.
 ```json
 {
   "message": "Login successful! Welcome john_doe"
+}
+```
+
+### 4. Biometric Setup
+**POST** `/api/auth/biometric/setup`
+
+Setup biometric authentication (Face ID or Fingerprint).
+
+**Request Body:**
+```json
+{
+  "emailOrPhone": "user@example.com",
+  "password": "password123",
+  "biometricType": "FACE_ID",
+  "biometricData": "base64_encoded_biometric_data",
+  "deviceId": "device_unique_identifier",
+  "deviceName": "iPhone 15 Pro"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Face ID setup successful",
+  "deviceName": "iPhone 15 Pro",
+  "biometricType": "Face ID"
+}
+```
+
+**Biometric Types:**
+- `FACE_ID` - Face recognition
+- `FINGERPRINT` - Fingerprint authentication
+
+### 5. Biometric Login
+**POST** `/api/auth/biometric/login`
+
+Login using biometric authentication.
+
+**Request Body:**
+```json
+{
+  "emailOrPhone": "user@example.com",
+  "biometricType": "FACE_ID",
+  "biometricData": "base64_encoded_biometric_data",
+  "deviceId": "device_unique_identifier"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Biometric login successful! Welcome john_doe",
+  "user": {
+    "id": 1,
+    "username": "john_doe",
+    "emailOrPhone": "user@example.com"
+  }
+}
+```
+
+### 6. Get Biometric Devices
+**GET** `/api/auth/biometric/devices?emailOrPhone=user@example.com`
+
+Get all biometric devices for a user.
+
+**Response:**
+```json
+{
+  "success": true,
+  "devices": [
+    {
+      "id": 1,
+      "biometricType": "Face ID",
+      "deviceName": "iPhone 15 Pro",
+      "deviceId": "device_unique_identifier",
+      "createdAt": "2024-01-15T10:30:00",
+      "lastUsedAt": "2024-01-15T14:30:00"
+    },
+    {
+      "id": 2,
+      "biometricType": "Fingerprint",
+      "deviceName": "Samsung Galaxy S24",
+      "deviceId": "another_device_id",
+      "createdAt": "2024-01-15T11:00:00",
+      "lastUsedAt": "2024-01-15T13:00:00"
+    }
+  ]
+}
+```
+
+### 7. Remove Biometric Device
+**DELETE** `/api/auth/biometric/devices/{biometricId}?emailOrPhone=user@example.com`
+
+Remove a biometric device.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Biometric device removed successfully"
+}
+```
+
+### 8. Check Biometric Status
+**GET** `/api/auth/biometric/status?emailOrPhone=user@example.com`
+
+Check if user has biometric authentication enabled.
+
+**Response:**
+```json
+{
+  "success": true,
+  "hasBiometric": true,
+  "biometricCount": 2
 }
 ```
 
@@ -497,6 +613,10 @@ Verify a completed payment.
 - `FAILED` - Transaction failed
 - `CANCELLED` - Transaction cancelled
 
+### Biometric Types
+- `FACE_ID` - Face recognition authentication
+- `FINGERPRINT` - Fingerprint authentication
+
 ---
 
 ## 🔧 Error Handling
@@ -534,13 +654,39 @@ curl -X POST http://localhost:8082/api/auth/signup \
   }'
 ```
 
-**Login:**
+**Login (OTP):**
 ```bash
 curl -X POST http://localhost:8082/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "emailOrPhone": "test@example.com",
     "password": "password123"
+  }'
+```
+
+**Biometric Setup:**
+```bash
+curl -X POST http://localhost:8082/api/auth/biometric/setup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "emailOrPhone": "test@example.com",
+    "password": "password123",
+    "biometricType": "FACE_ID",
+    "biometricData": "base64_encoded_data",
+    "deviceId": "device_123",
+    "deviceName": "iPhone 15 Pro"
+  }'
+```
+
+**Biometric Login:**
+```bash
+curl -X POST http://localhost:8082/api/auth/biometric/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "emailOrPhone": "test@example.com",
+    "biometricType": "FACE_ID",
+    "biometricData": "base64_encoded_data",
+    "deviceId": "device_123"
   }'
 ```
 
@@ -577,7 +723,7 @@ curl -X POST http://localhost:8082/api/wallets/transfer \
 
 3. **Test the APIs:**
    - Use the provided cURL examples
-   - Or use the frontend test pages in the `Frontend/` directory
+   - Test both OTP and biometric authentication methods
 
 4. **Configuration:**
    - Update `application.properties` with your database credentials
@@ -591,4 +737,4 @@ curl -X POST http://localhost:8082/api/wallets/transfer \
 For API support or questions, please refer to:
 - API documentation: This file
 - Database migrations: `FLYWAY_README.md`
-- Frontend examples: `Frontend/` directory 
+- Testing guide: `API_TESTING_GUIDE.md` 

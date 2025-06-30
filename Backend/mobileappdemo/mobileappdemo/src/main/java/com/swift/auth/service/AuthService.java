@@ -57,8 +57,41 @@ public class AuthService {
         user.setPassword(request.getPassword()); // In production, this should be hashed
         userRepository.save(user);
 
+        // Send welcome email
+        try {
+            System.out.println("Attempting to send welcome email to: " + user.getEmailOrPhone());
+            
+            SimpleMailMessage welcomeMessage = new SimpleMailMessage();
+            welcomeMessage.setTo(user.getEmailOrPhone());
+            welcomeMessage.setSubject("Welcome to Swift - Registration Successful!");
+            welcomeMessage.setText(String.format(
+                "Dear %s,\n\n" +
+                "Welcome to Swift! Your account has been successfully created.\n\n" +
+                "Account Details:\n" +
+                "• Username: %s\n" +
+                "• Email: %s\n" +
+                "• Registration Date: %s\n\n" +
+                "You can now log in to your account and start using our services.\n\n" +
+                "Best regards,\n" +
+                "The Swift Team",
+                user.getUsername(),
+                user.getUsername(),
+                user.getEmailOrPhone(),
+                user.getCreatedAt().toString()
+            ));
+            
+            System.out.println("Sending welcome email...");
+            mailSender.send(welcomeMessage);
+            System.out.println("Welcome email sent successfully!");
+            
+        } catch (Exception e) {
+            // Log the error but don't fail the signup
+            System.err.println("Failed to send welcome email: " + e.getMessage());
+            e.printStackTrace();
+        }
+
         String successMessage = String.format(
-            "Registration successful!\nUsername: %s\nEmail/Phone: %s\nAccount created: %s",
+            "Registration successful!\nUsername: %s\nEmail/Phone: %s\nAccount created: %s\n\nA welcome email has been sent to your email address.",
             user.getUsername(),
             user.getEmailOrPhone(),
             user.getCreatedAt().toString()

@@ -1,8 +1,10 @@
 package com.swift.auth.controller;
 
+import com.swift.auth.dto.AppleIdLoginRequest;
 import com.swift.auth.dto.LoginRequest;
 import com.swift.auth.dto.OtpRequest;
 import com.swift.auth.dto.SignupRequest;
+import com.swift.auth.service.AppleIdService;
 import com.swift.auth.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -10,9 +12,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
+@CrossOrigin(originPatterns = "*", allowCredentials = "false")
 public class AuthController {
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private AppleIdService appleIdService;
 
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
@@ -27,5 +33,10 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody OtpRequest request) {
         return authService.verifyOtp(request);
+    }
+
+    @PostMapping("/apple-login")
+    public ResponseEntity<?> appleIdLogin(@RequestBody AppleIdLoginRequest request) {
+        return appleIdService.appleIdLogin(request);
     }
 }

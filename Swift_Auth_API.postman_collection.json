@@ -1,0 +1,89 @@
+{
+  "info": {
+    "_postman_id": "swift-auth-api-collection",
+    "name": "Swift Auth API",
+    "description": "Comprehensive collection for testing Swift authentication, biometric, wallet, and transaction endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/actuator/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["actuator", "health"]
+        }
+      }
+    },
+    {
+      "name": "Signup",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emailOrPhone\": \"isrealabaefah2005@gmail.com\",\n  \"username\": \"Jacobs\",\n  \"password\": \"redpope2005\",\n  \"confirmPassword\": \"redpope2005\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emailOrPhone\": \"isrealabaefah2005@gmail.com\",\n  \"password\": \"redpope2005\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "Verify OTP",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"isrealabaefah2005@gmail.com\",\n  \"otp\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/verify-otp",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "verify-otp"]
+        }
+      }
+    },
+    {
+      "name": "Apple ID Login",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identityToken\": \"your_apple_identity_token_here\",\n  \"authorizationCode\": \"your_authorization_code_here\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/apple-login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "apple-login"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8082", "type": "string"}
+  ]
+} 
