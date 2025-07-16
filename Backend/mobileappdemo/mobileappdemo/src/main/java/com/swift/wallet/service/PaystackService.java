@@ -1,7 +1,6 @@
 package com.swift.wallet.service;
 
 import com.swift.wallet.enums.CurrencyType;
-import com.swift.wallet.models.Wallet;
 import com.swift.wallet.repository.WalletRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
