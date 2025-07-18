@@ -67,18 +67,50 @@
       }
     },
     {
-      "name": "Apple ID Login",
+      "name": "Deposit (Initialize)",
       "request": {
         "method": "POST",
         "header": [{"key": "Content-Type", "value": "application/json"}],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"identityToken\": \"your_apple_identity_token_here\",\n  \"authorizationCode\": \"your_authorization_code_here\"\n}"
+          "raw": "{\n  \"email\": \"isrealabaefah2005@gmail.com\",\n  \"amount\": 100\n}"
         },
         "url": {
-          "raw": "{{baseUrl}}/api/auth/apple-login",
+          "raw": "{{baseUrl}}/api/wallets/deposit",
           "host": ["{{baseUrl}}"],
-          "path": ["api", "auth", "apple-login"]
+          "path": ["api", "wallets", "deposit"]
+        }
+      }
+    },
+    {
+      "name": "Deposit (Verify)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"isrealabaefah2005@gmail.com\",\n  \"reference\": \"<paystack_reference_here>\",\n  \"amount\": 100\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/wallets/deposit/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "wallets", "deposit", "verify"]
+        }
+      }
+    },
+    {
+      "name": "Withdraw",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipientCode\": \"<paystack_recipient_code>\",\n  \"amount\": 50,\n  \"reason\": \"Withdrawal\",\n  \"walletId\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/wallets/withdraw",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "wallets", "withdraw"]
         }
       }
     }

@@ -110,6 +110,32 @@ public class PaystackService {
     }
 
     /**
+     * Initiate a transfer (withdrawal) to a recipient's bank account using Paystack
+     */
+    public Map<String, Object> initiateTransfer(String recipientCode, BigDecimal amount, String reason) {
+        String url = apiUrl + "/transfer";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + secretKey);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("source", "balance");
+        requestBody.put("amount", amount.multiply(BigDecimal.valueOf(100)).longValue()); // Paystack expects amount in kobo
+        requestBody.put("recipient", recipientCode);
+        requestBody.put("reason", reason);
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            return response.getBody();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initiate Paystack transfer: " + e.getMessage());
+        }
+    }
+
+    /**
      * Get Paystack public key
      */
     public String getPublicKey() {

@@ -114,6 +114,31 @@ public class AuthService {
             return ResponseEntity.badRequest().body("Invalid credentials");
         }
 
+        // Send login notification email
+        try {
+            SimpleMailMessage loginMessage = new SimpleMailMessage();
+            loginMessage.setTo(user.getEmailOrPhone());
+            loginMessage.setSubject("Swift Account Login Notification");
+            loginMessage.setText(String.format(
+                "Dear %s,\n\n" +
+                "Your Swift account was just signed into. If this was you, you can safely ignore this email.\n" +
+                "If you did not sign in, please reset your password immediately.\n\n" +
+                "Login Details:\n" +
+                "• Username: %s\n" +
+                "• Email: %s\n" +
+                "• Login Time: %s\n\n" +
+                "Best regards,\n" +
+                "The Swift Team",
+                user.getUsername(),
+                user.getUsername(),
+                user.getEmailOrPhone(),
+                java.time.LocalDateTime.now().toString()
+            ));
+            mailSender.send(loginMessage);
+        } catch (Exception e) {
+            System.err.println("Failed to send login notification email: " + e.getMessage());
+        }
+
         // Generate and send OTP
         String otp = String.format("%06d", new Random().nextInt(999999));
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);

@@ -5,12 +5,17 @@ import com.swift.auth.repository.UserRepository;
 import com.swift.wallet.dto.TransferRequest;
 import com.swift.wallet.dto.WalletDto;
 import com.swift.wallet.enums.CurrencyType;
+import com.swift.wallet.enums.TransactionType;
 import com.swift.wallet.service.WalletService;
+import com.swift.wallet.service.PaystackService;
+import com.swift.wallet.service.TransactionService;
+import com.swift.wallet.repository.WalletRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +29,15 @@ public class WalletController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PaystackService paystackService;
+
+    @Autowired
+    private TransactionService transactionService;
+
+    @Autowired
+    private WalletRepository walletRepository;
 
     /**
      * Get all wallets for the current user
@@ -71,6 +85,106 @@ public class WalletController {
                 response.put("message", "Transfer failed");
                 return ResponseEntity.badRequest().body(response);
             }
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Withdraw funds to a recipient's bank account using Paystack
+     */
+    @PostMapping("/withdraw")
+    public ResponseEntity<Map<String, Object>> withdraw(@RequestBody Map<String, Object> request) {
+        try {
+            String recipientCode = (String) request.get("recipientCode");
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            String reason = (String) request.getOrDefault("reason", "Withdrawal");
+            Map<String, Object> paystackResponse = paystackService.initiateTransfer(recipientCode, amount, reason);
+            // Record withdrawal transaction
+            Long walletId = request.containsKey("walletId") ? Long.valueOf(request.get("walletId").toString()) : null;
+            if (walletId != null) {
+                walletRepository.findById(walletId).ifPresent(wallet -> {
+                    transactionService.createTransaction(wallet, TransactionType.WITHDRAWAL, amount.negate(), wallet.getCurrency(), reason, paystackResponse.getOrDefault("reference", "").toString());
+                });
+            }
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("paystackResponse", paystackResponse);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Deposit funds into wallet using Paystack payment initialization
+     */
+    @PostMapping("/deposit")
+    public ResponseEntity<Map<String, Object>> deposit(@RequestBody Map<String, Object> request) {
+        try {
+            String email = (String) request.get("email");
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            String reference = (String) request.getOrDefault("reference", "DEP_" + System.currentTimeMillis());
+            // You can change CurrencyType.GHS to support other currencies if needed
+            Map<String, Object> paystackResponse = paystackService.initializePayment(email, amount, com.swift.wallet.enums.CurrencyType.GHS, reference);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("paystackResponse", paystackResponse);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Verify Paystack payment and credit wallet after successful deposit
+     */
+    @PostMapping("/deposit/verify")
+    public ResponseEntity<Map<String, Object>> verifyDeposit(@RequestBody Map<String, Object> request) {
+        try {
+            String email = (String) request.get("email");
+            String reference = (String) request.get("reference");
+            java.math.BigDecimal amount = new java.math.BigDecimal(request.get("amount").toString());
+            com.swift.wallet.enums.CurrencyType currency = com.swift.wallet.enums.CurrencyType.GHS; // Or get from request if needed
+
+            boolean paymentVerified = paystackService.verifyPayment(reference);
+            Map<String, Object> response = new HashMap<>();
+            if (paymentVerified) {
+                // Find user and wallet
+                com.swift.auth.models.User user = userRepository.findByEmail(email).orElse(null);
+                if (user == null) {
+                    response.put("success", false);
+                    response.put("message", "User not found");
+                    return ResponseEntity.badRequest().body(response);
+                }
+                java.util.Optional<com.swift.wallet.models.Wallet> walletOpt = walletRepository.findUserWalletByCurrency(user.getId(), currency);
+                if (walletOpt.isEmpty()) {
+                    response.put("success", false);
+                    response.put("message", "Wallet not found");
+                    return ResponseEntity.badRequest().body(response);
+                }
+                com.swift.wallet.models.Wallet wallet = walletOpt.get();
+                // Credit wallet
+                wallet.setBalance(wallet.getBalance().add(amount));
+                walletRepository.save(wallet);
+                // Record deposit transaction
+                transactionService.createTransaction(wallet, TransactionType.DEPOSIT, amount, currency, "Deposit via Paystack", reference);
+                response.put("success", true);
+                response.put("message", "Deposit verified and wallet credited");
+            } else {
+                response.put("success", false);
+                response.put("message", "Payment verification failed");
+            }
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);

@@ -36,13 +36,6 @@ public class User {
     @Column(unique = true)
     private String phone;
 
-    // Apple ID fields
-    @Column(unique = true)
-    private String appleId;
-
-    @Enumerated(EnumType.STRING)
-    private AuthProvider authProvider = AuthProvider.EMAIL;
-
     private String firstName;
     private String lastName;
 
@@ -73,12 +66,6 @@ public class User {
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
-
-    public String getAppleId() { return appleId; }
-    public void setAppleId(String appleId) { this.appleId = appleId; }
-
-    public AuthProvider getAuthProvider() { return authProvider; }
-    public void setAuthProvider(AuthProvider authProvider) { this.authProvider = authProvider; }
 
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
