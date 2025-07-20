@@ -81,26 +81,26 @@ public class WalletService {
      * Transfer money between wallets
      */
     public boolean transferMoney(TransferRequest request) {
-        Optional<Wallet> fromWalletOpt = walletRepository.findById(request.getFromWalletId());
-        Optional<Wallet> toWalletOpt = walletRepository.findById(request.getToWalletId());
-
+        // Look up wallets by user and currency
+        Optional<Wallet> fromWalletOpt = walletRepository.findUserWalletByCurrency(request.getUserId(), request.getFromCurrency());
+        Optional<Wallet> toWalletOpt = walletRepository.findUserWalletByCurrency(request.getUserId(), request.getToCurrency());
         if (fromWalletOpt.isEmpty() || toWalletOpt.isEmpty()) {
             throw new RuntimeException("One or both wallets not found");
         }
-
         Wallet fromWallet = fromWalletOpt.get();
         Wallet toWallet = toWalletOpt.get();
+        return transferMoneyByWallets(fromWallet, toWallet, request);
+    }
 
+    public boolean transferMoneyByWallets(Wallet fromWallet, Wallet toWallet, TransferRequest request) {
         // Check if user owns the from wallet
         if (!fromWallet.getUser().getId().equals(toWallet.getUser().getId())) {
             throw new RuntimeException("Can only transfer between your own wallets");
         }
-
         // Check sufficient balance
         if (fromWallet.getBalance().compareTo(request.getAmount()) < 0) {
             throw new RuntimeException("Insufficient balance");
         }
-
         // Perform transfer
         if (fromWallet.getCurrency() == toWallet.getCurrency()) {
             // Same currency transfer
@@ -126,9 +126,9 @@ public class WalletService {
         // Create transactions
         String reference = "TRANSFER_" + System.currentTimeMillis();
         transactionService.createTransaction(fromWallet, TransactionType.TRANSFER, request.getAmount().negate(), 
-                         request.getCurrency(), "Transfer to " + toWallet.getCurrency(), reference + "_OUT");
+                         request.getFromCurrency(), "Transfer to " + toWallet.getCurrency(), reference + "_OUT");
         transactionService.createTransaction(toWallet, TransactionType.TRANSFER, request.getAmount(), 
-                         request.getCurrency(), "Transfer from " + fromWallet.getCurrency(), reference + "_IN");
+                         request.getToCurrency(), "Transfer from " + fromWallet.getCurrency(), reference + "_IN");
 
         return true;
     }
@@ -138,7 +138,7 @@ public class WalletService {
      */
     private boolean performCrossCurrencyTransfer(Wallet fromWallet, Wallet toWallet, TransferRequest request) {
         // Get exchange rate
-        BigDecimal exchangeRate = exchangeRateService.getExchangeRate(request.getCurrency(), toWallet.getCurrency());
+        BigDecimal exchangeRate = exchangeRateService.getExchangeRate(request.getFromCurrency(), request.getToCurrency());
         BigDecimal convertedAmount = request.getAmount().multiply(exchangeRate);
 
         // Deduct from source wallet
@@ -152,7 +152,7 @@ public class WalletService {
         // Create transactions with exchange rate info
         String reference = "EXCHANGE_" + System.currentTimeMillis();
         Transaction fromTransaction = transactionService.createTransaction(fromWallet, TransactionType.CURRENCY_EXCHANGE, 
-                                                       request.getAmount().negate(), request.getCurrency(),
+                                                       request.getAmount().negate(), request.getFromCurrency(),
                                                        "Currency exchange to " + toWallet.getCurrency(), reference + "_OUT");
         fromTransaction.setExchangeRate(exchangeRate);
         fromTransaction.setConvertedAmount(convertedAmount);
@@ -163,7 +163,7 @@ public class WalletService {
                                                      "Currency exchange from " + fromWallet.getCurrency(), reference + "_IN");
         toTransaction.setExchangeRate(exchangeRate);
         toTransaction.setConvertedAmount(request.getAmount());
-        toTransaction.setConvertedCurrency(request.getCurrency());
+        toTransaction.setConvertedCurrency(request.getFromCurrency());
 
         return true;
     }

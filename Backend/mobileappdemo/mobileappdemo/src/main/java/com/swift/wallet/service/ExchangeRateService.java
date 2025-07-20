@@ -1,22 +1,19 @@
 package com.swift.wallet.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.swift.wallet.enums.CurrencyType;
-import com.swift.wallet.models.ExchangeRate;
-import com.swift.wallet.repository.ExchangeRateRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Optional;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ExchangeRateService {
-
-    @Autowired
-    private ExchangeRateRepository exchangeRateRepository;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -24,27 +21,32 @@ public class ExchangeRateService {
     @Value("${exchange.rate.api.key}")
     private String apiKey;
 
-    @Value("${exchange.rate.api.url:https://api.exchangerate-api.com/v4/latest/}")
+    @Value("${exchange.rate.api.url:https://v6.exchangerate-api.com/v6/}")
     private String apiUrl;
+
+    // Caffeine cache for exchange rates
+    private final Cache<String, BigDecimal> exchangeRateCache = Caffeine.newBuilder()
+            .expireAfterWrite(30, TimeUnit.MINUTES) // Cache for 30 minutes
+            .maximumSize(100) // Maximum 100 entries
+            .build();
 
     /**
      * Get exchange rate between two currencies
      */
     public BigDecimal getExchangeRate(CurrencyType fromCurrency, CurrencyType toCurrency) {
         // Check cache first
-        Optional<ExchangeRate> cachedRate = exchangeRateRepository
-                .findValidExchangeRate(fromCurrency, toCurrency, LocalDateTime.now());
-
-        if (cachedRate.isPresent()) {
-            return cachedRate.get().getRate();
+        String cacheKey = fromCurrency.name() + "_TO_" + toCurrency.name();
+        BigDecimal cachedRate = exchangeRateCache.getIfPresent(cacheKey);
+        
+        if (cachedRate != null) {
+            return cachedRate;
         }
 
         // Fetch from API
         BigDecimal rate = fetchExchangeRateFromAPI(fromCurrency, toCurrency);
 
         // Save to cache
-        ExchangeRate exchangeRate = new ExchangeRate(fromCurrency, toCurrency, rate);
-        exchangeRateRepository.save(exchangeRate);
+        exchangeRateCache.put(cacheKey, rate);
 
         return rate;
     }
@@ -92,10 +94,17 @@ public class ExchangeRateService {
     }
 
     /**
-     * Clear expired exchange rates
+     * Clear all cached exchange rates
      */
-    public void clearExpiredRates() {
-        exchangeRateRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+    public void clearCache() {
+        exchangeRateCache.invalidateAll();
+    }
+
+    /**
+     * Get cache statistics (for monitoring)
+     */
+    public String getCacheStats() {
+        return exchangeRateCache.stats().toString();
     }
 
     // Inner class for API response
@@ -104,13 +113,10 @@ public class ExchangeRateService {
         private String date;
         private java.util.Map<String, BigDecimal> rates;
 
-        // Getters and setters
         public String getBase() { return base; }
         public void setBase(String base) { this.base = base; }
-
         public String getDate() { return date; }
         public void setDate(String date) { this.date = date; }
-
         public java.util.Map<String, BigDecimal> getRates() { return rates; }
         public void setRates(java.util.Map<String, BigDecimal> rates) { this.rates = rates; }
     }

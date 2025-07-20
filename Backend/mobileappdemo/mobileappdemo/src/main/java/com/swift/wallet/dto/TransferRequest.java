@@ -6,48 +6,46 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 public class TransferRequest {
-    @NotNull(message = "From wallet ID is required")
-    private Long fromWalletId;
+    @NotNull(message = "From currency is required")
+    private CurrencyType fromCurrency;
 
-    @NotNull(message = "To wallet ID is required")
-    private Long toWalletId;
+    @NotNull(message = "To currency is required")
+    private CurrencyType toCurrency;
 
     @NotNull(message = "Amount is required")
     @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
     private BigDecimal amount;
 
-    @NotNull(message = "Currency is required")
-    private CurrencyType currency;
+    @NotNull(message = "User ID is required")
+    private Long userId;
 
     private String description;
 
     // Constructors
     public TransferRequest() {}
 
-    public TransferRequest(Long fromWalletId, Long toWalletId, BigDecimal amount, 
-                          CurrencyType currency, String description) {
-        this.fromWalletId = fromWalletId;
-        this.toWalletId = toWalletId;
+    public TransferRequest(CurrencyType fromCurrency, CurrencyType toCurrency, BigDecimal amount, String description) {
+        this.fromCurrency = fromCurrency;
+        this.toCurrency = toCurrency;
         this.amount = amount;
-        this.currency = currency;
         this.description = description;
     }
 
     // Getters and Setters
-    public Long getFromWalletId() {
-        return fromWalletId;
+    public CurrencyType getFromCurrency() {
+        return fromCurrency;
     }
 
-    public void setFromWalletId(Long fromWalletId) {
-        this.fromWalletId = fromWalletId;
+    public void setFromCurrency(CurrencyType fromCurrency) {
+        this.fromCurrency = fromCurrency;
     }
 
-    public Long getToWalletId() {
-        return toWalletId;
+    public CurrencyType getToCurrency() {
+        return toCurrency;
     }
 
-    public void setToWalletId(Long toWalletId) {
-        this.toWalletId = toWalletId;
+    public void setToCurrency(CurrencyType toCurrency) {
+        this.toCurrency = toCurrency;
     }
 
     public BigDecimal getAmount() {
@@ -58,12 +56,11 @@ public class TransferRequest {
         this.amount = amount;
     }
 
-    public CurrencyType getCurrency() {
-        return currency;
+    public Long getUserId() {
+        return userId;
     }
-
-    public void setCurrency(CurrencyType currency) {
-        this.currency = currency;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getDescription() {

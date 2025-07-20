@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "swift-auth-api-collection",
     "name": "Swift Auth API",
-    "description": "Comprehensive collection for testing Swift authentication, biometric, wallet, and transaction endpoints.",
+    "description": "Comprehensive collection for testing Swift authentication, wallet, and transaction endpoints, including interwallet and external transfers.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -112,6 +112,44 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "wallets", "withdraw"]
         }
+      }
+    },
+    {
+      "name": "Interwallet Transfer (Internal)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 1,\n  \"fromCurrency\": \"GHS\",\n  \"toCurrency\": \"USD\",\n  \"amount\": 100.00,\n  \"description\": \"Convert GHS to USD\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/wallets/interwallet",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "wallets", "interwallet"]
+        },
+        "description": "Move money between your own wallets (GHS, USD, GBP, EUR) within the app. No Paystack involved."
+      }
+    },
+    {
+      "name": "External Transfer (Paystack)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Recipient Name\",\n  \"accountNumber\": \"0551234567\",\n  \"bankCode\": \"MTN\",\n  \"currency\": \"GHS\",\n  \"amount\": 50.00,\n  \"reason\": \"Payment for services\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/wallets/transfer",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "wallets", "transfer"]
+        },
+        "description": "Send money to another person via Paystack (e.g., mobile money, bank). Uses Paystack's transfer API."
       }
     }
   ],

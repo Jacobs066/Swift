@@ -135,8 +135,7 @@ class WalletServiceTest {
     @Test
     void testTransferMoneySameCurrency() {
         // Arrange
-        TransferRequest request = new TransferRequest(1L, 2L, BigDecimal.valueOf(100.00), 
-                                                    CurrencyType.GHS, "Test transfer");
+        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Test transfer");
         
         when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
         when(walletRepository.findById(2L)).thenReturn(Optional.of(usdWallet));
@@ -163,8 +162,7 @@ class WalletServiceTest {
     @Test
     void testTransferMoneyCrossCurrency() {
         // Arrange
-        TransferRequest request = new TransferRequest(1L, 2L, BigDecimal.valueOf(100.00), 
-                                                    CurrencyType.GHS, "Cross currency transfer");
+        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Cross currency transfer");
         
         when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
         when(walletRepository.findById(2L)).thenReturn(Optional.of(usdWallet));
@@ -193,8 +191,7 @@ class WalletServiceTest {
     @Test
     void testTransferMoneyInsufficientBalance() {
         // Arrange
-        TransferRequest request = new TransferRequest(1L, 2L, BigDecimal.valueOf(2000.00), 
-                                                    CurrencyType.GHS, "Large transfer");
+        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(2000.00), "Large transfer");
         
         when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
         when(walletRepository.findById(2L)).thenReturn(Optional.of(usdWallet));
@@ -213,8 +210,7 @@ class WalletServiceTest {
     @Test
     void testTransferMoneyWalletNotFound() {
         // Arrange
-        TransferRequest request = new TransferRequest(999L, 2L, BigDecimal.valueOf(100.00), 
-                                                    CurrencyType.GHS, "Invalid transfer");
+        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Invalid transfer");
         
         when(walletRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -236,9 +232,7 @@ class WalletServiceTest {
         otherUser.setId(2L);
         Wallet otherWallet = new Wallet(otherUser, CurrencyType.USD, false);
         otherWallet.setId(4L);
-        
-        TransferRequest request = new TransferRequest(1L, 4L, BigDecimal.valueOf(100.00), 
-                                                    CurrencyType.GHS, "Cross user transfer");
+        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Cross user transfer");
         
         when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
         when(walletRepository.findById(4L)).thenReturn(Optional.of(otherWallet));

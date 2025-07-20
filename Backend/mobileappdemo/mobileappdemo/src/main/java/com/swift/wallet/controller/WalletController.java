@@ -69,22 +69,53 @@ public class WalletController {
     }
 
     /**
-     * Transfer money between wallets
+     * Interwallet transfer: move money between user's own wallets (no Paystack)
      */
-    @PostMapping("/transfer")
-    public ResponseEntity<Map<String, Object>> transferMoney(@Valid @RequestBody TransferRequest request) {
+    @PostMapping("/interwallet")
+    public ResponseEntity<Map<String, Object>> interwalletTransfer(@Valid @RequestBody TransferRequest request) {
         try {
             boolean success = walletService.transferMoney(request);
             Map<String, Object> response = new HashMap<>();
-            if (success) {
-                response.put("success", true);
-                response.put("message", "Transfer completed successfully");
-                return ResponseEntity.ok(response);
-            } else {
-                response.put("success", false);
-                response.put("message", "Transfer failed");
-                return ResponseEntity.badRequest().body(response);
-            }
+            response.put("success", success);
+            response.put("message", success ? "Interwallet transfer successful" : "Transfer failed");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * External transfer: send money to another user via Paystack
+     */
+    @PostMapping("/transfer")
+    public ResponseEntity<Map<String, Object>> externalTransfer(@RequestBody Map<String, Object> request) {
+        try {
+            // Required fields: accountNumber, bankCode, currency, amount, reason
+            String name = request.containsKey("name") ? (String) request.get("name") : null;
+            String accountNumber = (String) request.get("accountNumber");
+            String bankCode = (String) request.get("bankCode");
+            String currency = (String) request.get("currency");
+            java.math.BigDecimal amount = new java.math.BigDecimal(request.get("amount").toString());
+            String reason = (String) request.getOrDefault("reason", "External transfer");
+
+            // 1. Create transfer recipient
+            com.swift.wallet.dto.PaystackTransferRecipientRequest recipientRequest = new com.swift.wallet.dto.PaystackTransferRecipientRequest();
+            if (name != null) recipientRequest.setName(name);
+            recipientRequest.setAccount_number(accountNumber);
+            recipientRequest.setBank_code(bankCode);
+            recipientRequest.setCurrency(currency);
+            String recipientCode = paystackService.createTransferRecipient(recipientRequest);
+
+            // 2. Initiate transfer
+            Map<String, Object> paystackResponse = paystackService.initiateTransfer(recipientCode, amount, reason);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("paystackResponse", paystackResponse);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);

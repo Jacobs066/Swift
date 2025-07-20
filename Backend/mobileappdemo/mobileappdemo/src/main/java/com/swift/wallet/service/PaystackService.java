@@ -12,6 +12,8 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import com.swift.wallet.dto.PaystackTransferRecipientRequest;
+import com.swift.wallet.dto.PaystackTransferRecipientResponse;
 
 @Service
 public class PaystackService {
@@ -132,6 +134,32 @@ public class PaystackService {
             return response.getBody();
         } catch (Exception e) {
             throw new RuntimeException("Failed to initiate Paystack transfer: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Create a Paystack transfer recipient for Ghana mobile money
+     */
+    public String createTransferRecipient(PaystackTransferRecipientRequest requestDto) {
+        String url = apiUrl + "/transferrecipient";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + secretKey);
+
+        HttpEntity<PaystackTransferRecipientRequest> request = new HttpEntity<>(requestDto, headers);
+
+        try {
+            ResponseEntity<PaystackTransferRecipientResponse> response = restTemplate.postForEntity(
+                url, request, PaystackTransferRecipientResponse.class);
+            PaystackTransferRecipientResponse body = response.getBody();
+            if (body != null && body.isStatus() && body.getData() != null) {
+                return body.getData().getRecipient_code();
+            } else {
+                throw new RuntimeException(body != null ? body.getMessage() : "Unknown error from Paystack");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create Paystack transfer recipient: " + e.getMessage());
         }
     }
 
