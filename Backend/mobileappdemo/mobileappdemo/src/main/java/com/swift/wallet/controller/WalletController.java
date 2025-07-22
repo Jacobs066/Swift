@@ -98,6 +98,9 @@ public class WalletController {
             String accountNumber = (String) request.get("accountNumber");
             String bankCode = (String) request.get("bankCode");
             String currency = (String) request.get("currency");
+            if (currency == null || currency.isEmpty()) {
+                currency = "GHS";
+            }
             java.math.BigDecimal amount = new java.math.BigDecimal(request.get("amount").toString());
             String reason = (String) request.getOrDefault("reason", "External transfer");
 

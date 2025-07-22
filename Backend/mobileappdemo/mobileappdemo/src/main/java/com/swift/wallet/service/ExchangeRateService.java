@@ -37,7 +37,7 @@ public class ExchangeRateService {
         // Check cache first
         String cacheKey = fromCurrency.name() + "_TO_" + toCurrency.name();
         BigDecimal cachedRate = exchangeRateCache.getIfPresent(cacheKey);
-        
+
         if (cachedRate != null) {
             return cachedRate;
         }
