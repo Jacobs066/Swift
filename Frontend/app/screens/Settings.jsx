@@ -1,3 +1,4 @@
+
 import React, { useContext } from 'react';
 import {
   View,
@@ -12,22 +13,22 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ProfileContext } from '../context/ProfileContext';
-import { useTheme } from '../context/ThemeContext'; // ✅ Theme context
+import { useTheme } from '../context/ThemeContext';
 
 const SettingsScreen = () => {
   const router = useRouter();
   const { profileImage } = useContext(ProfileContext);
-  const { isDarkMode, toggleTheme } = useTheme(); // ✅ Get dark mode state
+  const { isDarkMode, toggleTheme } = useTheme();
 
   const themeStyles = getThemeStyles(isDarkMode);
 
   return (
     <ScrollView style={[styles.container, themeStyles.container]} contentContainerStyle={{ paddingBottom: 40 }}>
-
+      {/* Back Button */}
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back-circle" size={24} color="#800080" />
-            </TouchableOpacity>
-      
+        <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+      </TouchableOpacity>
+
       {/* Header */}
       <View style={[styles.header, themeStyles.header]}>
         <Text style={[styles.headerText, themeStyles.headerText]}>Settings</Text>
@@ -52,12 +53,13 @@ const SettingsScreen = () => {
         {/* Change Profile Photo */}
         <TouchableOpacity
           style={[styles.profileBtn, themeStyles.profileBtn]}
-          onPress={() => router.push('../../settings/Profile')}>
+          onPress={() => router.push('../../settings/Profile')}
+        >
           <Text style={[styles.profileBtnText, themeStyles.profileBtnText]}>Change profile photo</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Options Card */}
+      {/* Options */}
       <View style={[styles.card, themeStyles.card]}>
         <View style={styles.row}>
           <Ionicons name="moon-outline" size={18} color="#800080" />
@@ -69,12 +71,27 @@ const SettingsScreen = () => {
         {settingsItem('shield-checkmark-outline', 'Privacy & Data', () => router.push('../../settings/Privacy'), isDarkMode)}
         {settingsItem('language-outline', 'Language', () => router.push('/screens/LanguageSelectionScreen'), isDarkMode)}
         {settingsItem('help-circle-outline', 'Help', () => router.push('../../settings/Help'), isDarkMode)}
-        {settingsItem('information-circle-outline', 'About', () => router.push('../../settings/About'), isDarkMode)}
       </View>
 
       {/* Logout */}
       <TouchableOpacity style={styles.logout} onPress={() => router.push('/screens/LoginScreen')}>
         <Text style={styles.logoutText}>Log out</Text>
+      </TouchableOpacity>
+
+      {/* About Us */}
+      <TouchableOpacity
+        style={[styles.bottomLink, isDarkMode && styles.bottomLinkDark]}
+        onPress={() => router.push('../../settings/About')}
+      >
+        <Text style={[styles.bottomLinkText, isDarkMode && styles.bottomLinkTextDark]}>About Us</Text>
+      </TouchableOpacity>
+
+      {/* Customer Service */}
+      <TouchableOpacity
+        style={[styles.bottomLink, isDarkMode && styles.bottomLinkDark]}
+        onPress={() => router.push('../../settings/Help')}
+      >
+        <Text style={[styles.bottomLinkText, isDarkMode && styles.bottomLinkTextDark]}>Customer Service</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -88,7 +105,6 @@ const settingsItem = (icon, label, onPress, isDarkMode) => (
   </TouchableOpacity>
 );
 
-// Dynamic dark mode styles
 const getThemeStyles = (isDarkMode) => ({
   container: {
     backgroundColor: isDarkMode ? '#121212' : '#fff',
@@ -97,10 +113,10 @@ const getThemeStyles = (isDarkMode) => ({
     backgroundColor: isDarkMode ? '#1e1e1e' : '#800080',
   },
   headerText: {
-    color: isDarkMode ? '#fff' : '#fff',
+    color: '#fff',
   },
   name: {
-    color: isDarkMode ? '#fff' : '#fff',
+    color: '#fff',
   },
   email: {
     color: isDarkMode ? '#ccc' : '#f2f2f2',
@@ -203,10 +219,29 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 20,
   },
   logoutText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  bottomLink: {
+    backgroundColor: '#f2f2f2',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  bottomLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#800080',
+  },
+  bottomLinkDark: {
+    backgroundColor: '#333',
+  },
+  bottomLinkTextDark: {
+    color: '#fff',
   },
 });
 
