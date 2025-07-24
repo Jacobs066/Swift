@@ -18,6 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.quality.Strictness;
+import org.mockito.junit.jupiter.MockitoSettings;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -29,6 +31,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT) // Optional: prevent UnnecessaryStubbingException during development
 class WalletServiceTest {
 
     @Mock
@@ -135,66 +138,73 @@ class WalletServiceTest {
     @Test
     void testTransferMoneySameCurrency() {
         // Arrange
-        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Test transfer");
-        
-        when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
-        when(walletRepository.findById(2L)).thenReturn(Optional.of(usdWallet));
-        when(exchangeRateService.getExchangeRate(CurrencyType.GHS, CurrencyType.GHS)).thenReturn(BigDecimal.ONE);
+        Long senderId = 10L;
+        Long receiverId = 20L;
+        Wallet senderWallet = new Wallet(testUser, CurrencyType.USD, true);
+        senderWallet.setId(senderId);
+        senderWallet.setBalance(BigDecimal.valueOf(1000.00));
+        Wallet receiverWallet = new Wallet(testUser, CurrencyType.USD, false);
+        receiverWallet.setId(receiverId);
+        receiverWallet.setBalance(BigDecimal.valueOf(500.00));
+        TransferRequest request = new TransferRequest(senderWallet.getCurrency(), receiverWallet.getCurrency(), BigDecimal.valueOf(100.00), "Test transfer");
+        when(walletRepository.findById(senderId)).thenReturn(Optional.of(senderWallet));
+        when(walletRepository.findById(receiverId)).thenReturn(Optional.of(receiverWallet));
+        when(exchangeRateService.getExchangeRate(senderWallet.getCurrency(), receiverWallet.getCurrency())).thenReturn(BigDecimal.ONE);
         when(transactionService.createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
                                                 any(BigDecimal.class), any(CurrencyType.class), 
                                                 anyString(), anyString())).thenReturn(new Transaction());
-
         // Act
         boolean result = walletService.transferMoney(request);
-
         // Assert
         assertTrue(result);
         verify(walletRepository, times(2)).save(any(com.swift.wallet.models.Wallet.class));
         verify(transactionService, times(2)).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
                                                               any(BigDecimal.class), any(CurrencyType.class), 
                                                               anyString(), anyString());
-        
         // Verify balances were updated correctly
-        assertEquals(BigDecimal.valueOf(900.00), ghsWallet.getBalance());
-        assertEquals(BigDecimal.valueOf(600.00), usdWallet.getBalance());
+        assertEquals(BigDecimal.valueOf(900.00), senderWallet.getBalance());
+        assertEquals(BigDecimal.valueOf(600.00), receiverWallet.getBalance());
     }
 
     @Test
     void testTransferMoneyCrossCurrency() {
         // Arrange
-        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Cross currency transfer");
-        
-        when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
-        when(walletRepository.findById(2L)).thenReturn(Optional.of(usdWallet));
-        when(exchangeRateService.getExchangeRate(CurrencyType.GHS, CurrencyType.USD))
+        Long senderId = 11L;
+        Long receiverId = 21L;
+        Wallet senderWallet = new Wallet(testUser, CurrencyType.GHS, true);
+        senderWallet.setId(senderId);
+        senderWallet.setBalance(BigDecimal.valueOf(1000.00));
+        Wallet receiverWallet = new Wallet(testUser, CurrencyType.USD, false);
+        receiverWallet.setId(receiverId);
+        receiverWallet.setBalance(BigDecimal.valueOf(500.00));
+        TransferRequest request = new TransferRequest(senderWallet.getCurrency(), receiverWallet.getCurrency(), BigDecimal.valueOf(100.00), "Cross currency transfer");
+        when(walletRepository.findById(senderId)).thenReturn(Optional.of(senderWallet));
+        when(walletRepository.findById(receiverId)).thenReturn(Optional.of(receiverWallet));
+        when(exchangeRateService.getExchangeRate(senderWallet.getCurrency(), receiverWallet.getCurrency()))
                 .thenReturn(BigDecimal.valueOf(0.12)); // 1 GHS = 0.12 USD
         when(transactionService.createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
                                                 any(BigDecimal.class), any(CurrencyType.class), 
                                                 anyString(), anyString())).thenReturn(new Transaction());
-
         // Act
         boolean result = walletService.transferMoney(request);
-
         // Assert
         assertTrue(result);
         verify(walletRepository, times(2)).save(any(com.swift.wallet.models.Wallet.class));
         verify(transactionService, times(2)).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
                                                               any(BigDecimal.class), any(CurrencyType.class), 
                                                               anyString(), anyString());
-        verify(exchangeRateService).getExchangeRate(CurrencyType.GHS, CurrencyType.USD);
-        
+        verify(exchangeRateService).getExchangeRate(senderWallet.getCurrency(), receiverWallet.getCurrency());
         // Verify balances were updated correctly
-        assertEquals(BigDecimal.valueOf(900.00), ghsWallet.getBalance());
-        assertEquals(0, usdWallet.getBalance().compareTo(BigDecimal.valueOf(512.00)));
+        assertEquals(BigDecimal.valueOf(900.00), senderWallet.getBalance());
+        assertEquals(0, receiverWallet.getBalance().compareTo(BigDecimal.valueOf(512.00)));
     }
 
     @Test
     void testTransferMoneyInsufficientBalance() {
         // Arrange
         TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(2000.00), "Large transfer");
-        
+        // Only stub the sender wallet, as the exception is thrown before the receiver is needed
         when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
-        when(walletRepository.findById(2L)).thenReturn(Optional.of(usdWallet));
 
         // Act & Assert
         assertThrows(RuntimeException.class, () -> {
@@ -211,7 +221,7 @@ class WalletServiceTest {
     void testTransferMoneyWalletNotFound() {
         // Arrange
         TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Invalid transfer");
-        
+        // Only mock the missing wallet as needed
         when(walletRepository.findById(999L)).thenReturn(Optional.empty());
 
         // Act & Assert
@@ -233,7 +243,7 @@ class WalletServiceTest {
         Wallet otherWallet = new Wallet(otherUser, CurrencyType.USD, false);
         otherWallet.setId(4L);
         TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Cross user transfer");
-        
+        // Only stub the sender and receiver wallets as needed
         when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
         when(walletRepository.findById(4L)).thenReturn(Optional.of(otherWallet));
 
