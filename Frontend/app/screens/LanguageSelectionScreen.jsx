@@ -8,17 +8,21 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useTheme } from '../context/ThemeContext'; // ✅ Custom theme context
+import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../context/LanguageContext';
 
 const LanguageSelectionScreen = () => {
   const router = useRouter();
   const { selected } = useLocalSearchParams();
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
-  const { theme } = useTheme(); // 'light' or 'dark'
+  const { t } = useTranslation();
+  const { currentLanguage, getCurrentLanguageName } = useLanguage();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (selected) {
-      setSelectedLanguage(selected);
+      // Handle if a language is passed as parameter
+      console.log('Selected language from params:', selected);
     }
   }, [selected]);
 
@@ -32,7 +36,7 @@ const LanguageSelectionScreen = () => {
       />
 
       <Text style={[styles.title, { color: isDark ? '#fff' : '#800080' }]}>
-        Choose your language for Swift
+        {t('chooseLanguage')}
       </Text>
 
       <TouchableOpacity
@@ -46,7 +50,7 @@ const LanguageSelectionScreen = () => {
         onPress={() => router.push('/screens/LanguagePicker')}
       >
         <Text style={[styles.dropdownText, { color: isDark ? '#fff' : '#800080' }]}>
-          {selectedLanguage}
+          {getCurrentLanguageName()}
         </Text>
         <Ionicons name="chevron-down" size={20} color={isDark ? '#fff' : '#800080'} />
       </TouchableOpacity>
@@ -55,7 +59,7 @@ const LanguageSelectionScreen = () => {
         style={styles.button}
         onPress={() => router.push('/screens/HomeScreen')}
       >
-        <Text style={styles.buttonText}>Continue</Text>
+        <Text style={styles.buttonText}>{t('continue')}</Text>
       </TouchableOpacity>
     </View>
   );

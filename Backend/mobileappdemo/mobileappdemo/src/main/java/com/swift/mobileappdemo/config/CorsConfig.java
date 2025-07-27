@@ -16,7 +16,15 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("*")  // Allow all origins
+                .allowedOriginPatterns(
+                    "*",  // Allow all origins for development
+                    "http://localhost:*",
+                    "http://192.168.50.135:*",
+                    "http://10.0.2.2:*",  // Android emulator
+                    "exp://*",  // Expo development
+                    "http://*",  // Any HTTP origin
+                    "https://*"  // Any HTTPS origin
+                )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(true)
@@ -27,8 +35,16 @@ public class CorsConfig implements WebMvcConfigurer {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Allow all origins
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        // Allow specific origins and patterns
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            "*",  // Allow all origins for development
+            "http://localhost:*",
+            "http://192.168.50.135:*",
+            "http://10.0.2.2:*",  // Android emulator
+            "exp://*",  // Expo development
+            "http://*",  // Any HTTP origin
+            "https://*"  // Any HTTPS origin
+        ));
         
         // Allow all HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

@@ -1,21 +1,34 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../context/LanguageContext';
 
 const LanguagePicker = () => {
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const router = useRouter();
+  const { t } = useTranslation();
+  const { changeLanguage } = useLanguage();
 
   const languages = [
-    'English', 'French', 'Spanish', 'Arabic', 'Swahili', 'Portuguese',
-    'Hausa', 'Yoruba', 'Twi',
-    'German', 'Hindi', 'Mandarin', 'Italian',
+    { code: 'en', name: t('english') },
+    { code: 'fr', name: t('french') },
+    { code: 'es', name: t('spanish') }
   ];
 
-  const handleContinue = () => {
+  const handleLanguageSelect = (languageCode) => {
+    setSelectedLanguage(languageCode);
+  };
+
+  const handleContinue = async () => {
     if (selectedLanguage) {
-      console.log('Language selected:', selectedLanguage);
-      router.push('/screens/HomeScreen'); // make sure this route exists
+      try {
+        await changeLanguage(selectedLanguage);
+        console.log('Language selected:', selectedLanguage);
+        router.push('/screens/HomeScreen');
+      } catch (error) {
+        console.error('Error changing language:', error);
+      }
     }
   };
 
@@ -23,14 +36,14 @@ const LanguagePicker = () => {
     <ScrollView contentContainerStyle={styles.container}>
       {languages.map((lang) => (
         <TouchableOpacity
-          key={lang}
-          onPress={() => setSelectedLanguage(lang)}
+          key={lang.code}
+          onPress={() => handleLanguageSelect(lang.code)}
           style={[
             styles.languageButton,
-            selectedLanguage === lang && styles.selectedLanguageButton,
+            selectedLanguage === lang.code && styles.selectedLanguageButton,
           ]}
         >
-          <Text style={styles.languageText}>{lang}</Text>
+          <Text style={styles.languageText}>{lang.name}</Text>
         </TouchableOpacity>
       ))}
 
@@ -39,7 +52,7 @@ const LanguagePicker = () => {
         style={[styles.continueButton, !selectedLanguage && { backgroundColor: '#ccc' }]}
         disabled={!selectedLanguage}
       >
-        <Text style={styles.continueText}>Continue</Text>
+        <Text style={styles.continueText}>{t('continue')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

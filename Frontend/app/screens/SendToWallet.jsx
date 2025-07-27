@@ -5,11 +5,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Image
+  Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { initiateSend } from '../api';
 
 const mobileWallets = [
   {
@@ -32,13 +35,60 @@ const mobileWallets = [
 const SendToMobileWalletScreen = () => {
   const [selectedWallet, setSelectedWallet] = useState('');
   const [walletNumber, setWalletNumber] = useState('');
+  const [recipientName, setRecipientName] = useState('');
   const [amount, setAmount] = useState('');
+  const [processing, setProcessing] = useState(false);
   const router = useRouter();
   const { isDarkMode } = useTheme();
 
-  const handleSend = () => {
-    if (selectedWallet && walletNumber && amount) {
-      router.push('/screens/SendSuccess'); // Adjust as needed
+  const validateForm = () => {
+    if (!selectedWallet) {
+      Alert.alert('Error', 'Please select a mobile network');
+      return false;
+    }
+    if (!walletNumber || walletNumber.length < 10) {
+      Alert.alert('Error', 'Please enter a valid wallet number (minimum 10 digits)');
+      return false;
+    }
+    if (!recipientName.trim()) {
+      Alert.alert('Error', 'Please enter the recipient name');
+      return false;
+    }
+    if (!amount || parseFloat(amount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSend = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setProcessing(true);
+      
+      const sendData = {
+        method: 'mobile',
+        amount: parseFloat(amount),
+        recipientDetails: {
+          network: selectedWallet,
+          walletNumber: walletNumber,
+          recipientName: recipientName,
+        }
+      };
+
+      const result = await initiateSend('mobile', parseFloat(amount), sendData.recipientDetails);
+      
+      Alert.alert('Success', 'Money sent successfully!', [
+        { 
+          text: 'OK', 
+          onPress: () => router.push('/screens/SendSuccess') 
+        }
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send money: ' + error.toString());
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -96,6 +146,24 @@ const SendToMobileWalletScreen = () => {
         keyboardType="numeric"
         value={walletNumber}
         onChangeText={setWalletNumber}
+        maxLength={10}
+      />
+
+      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>
+        Recipient Name
+      </Text>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+            color: isDarkMode ? '#fff' : '#000'
+          }
+        ]}
+        placeholder="Enter recipient name"
+        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
+        value={recipientName}
+        onChangeText={setRecipientName}
       />
 
       <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>
@@ -121,13 +189,17 @@ const SendToMobileWalletScreen = () => {
           styles.sendButton,
           {
             backgroundColor:
-              selectedWallet && walletNumber && amount ? '#800080' : '#ccc'
+              selectedWallet && walletNumber && recipientName && amount && !processing ? '#800080' : '#ccc'
           }
         ]}
         onPress={handleSend}
-        disabled={!selectedWallet || !walletNumber || !amount}
+        disabled={!selectedWallet || !walletNumber || !recipientName || !amount || processing}
       >
-        <Text style={styles.sendText}>Send</Text>
+        {processing ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.sendText}>Send</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

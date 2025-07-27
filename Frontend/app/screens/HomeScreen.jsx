@@ -7,14 +7,18 @@ import {
   ScrollView,
   Animated,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { getUserProfile, getAccountBalance, getRecentTransactions, getActivityLogs, getNotifications } from '../api';
 
 const HomeScreen = () => {
   const router = useRouter();
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const isDarkMode = theme === 'dark';
   const backgroundColor = isDarkMode ? '#000' : '#fff';
@@ -24,9 +28,18 @@ const HomeScreen = () => {
   const balanceTextColor = '#fff';
   const fabColor = isDarkMode ? '#2e2e2e' : '#d6bde1ff';
 
-  const [hasUnread, setHasUnread] = useState(true);
-  const [badge, setBadge] = useState(3);
+  const [hasUnread, setHasUnread] = useState(false);
+  const [badge, setBadge] = useState(0);
+  const [userProfile, setUserProfile] = useState(null);
+  const [accountBalance, setAccountBalance] = useState(null);
+  const [recentTx, setRecentTx] = useState([]);
+  const [recentLogs, setRecentLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    loadHomeData();
+  }, []);
 
   useEffect(() => {
     if (hasUnread) {
@@ -39,23 +52,41 @@ const HomeScreen = () => {
     }
   }, [hasUnread]);
 
-  const recentTx = [
-    { id: 1, label: 'Reward', time: 'Just now', amount: 0.1, icon: 'gift-outline' },
-    { id: 2, label: 'Deposit', time: 'Today, 12:30 PM', amount: 5.0, icon: 'cash-outline' },
-    { id: 3, label: 'Withdrawal', time: 'Yesterday', amount: -2.5, icon: 'arrow-down-outline' },
-    { id: 4, label: 'Interwallet', time: '2 days ago', amount: -1.75, icon: 'swap-horizontal-outline' },
-    { id: 5, label: 'Cashback', time: 'Last week', amount: 0.25, icon: 'card-outline' },
-  ];
+  const loadHomeData = async () => {
+    try {
+      setLoading(true);
+      const [profile, balance, transactions, logs, notifications] = await Promise.all([
+        getUserProfile(),
+        getAccountBalance(),
+        getRecentTransactions(),
+        getActivityLogs(),
+        getNotifications()
+      ]);
 
-  const recentLogs = [
-    { id: 'l1', label: 'Logged in', time: '5 min ago', icon: 'log-in-outline' },
-    { id: 'l2', label: 'PIN changed', time: 'Today, 10:12 AM', icon: 'key-outline' },
-    { id: 'l3', label: 'Biometric enabled', time: 'Yesterday', icon: 'finger-print-outline' },
-    { id: 'l4', label: 'Updated profile', time: '2 days ago', icon: 'person-outline' },
-    { id: 'l5', label: 'Logged out', time: '3 days ago', icon: 'log-out-outline' },
-  ];
+      setUserProfile(profile);
+      setAccountBalance(balance);
+      setRecentTx(transactions);
+      setRecentLogs(logs);
+      
+      const unreadCount = notifications.filter(n => !n.read).length;
+      setHasUnread(unreadCount > 0);
+      setBadge(unreadCount);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load home data: ' + error.toString());
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const openDetails = (item) => router.push({ pathname: '/screens/TransactionDetails', params: item });
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: textColor }}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
@@ -63,9 +94,13 @@ const HomeScreen = () => {
         <View style={styles.greetingRow}>
           <View style={styles.greetingLeft}>
             <View style={[styles.avatar, { backgroundColor: '#800080' }]}>
-              <Text style={styles.avatarText}>I</Text>
+              <Text style={styles.avatarText}>
+                {userProfile?.firstName?.charAt(0) || userProfile?.fullName?.charAt(0) || 'U'}
+              </Text>
             </View>
-            <Text style={[styles.welcomeText, { color: textColor }]}>Welcome to Swift! 👋</Text>
+            <Text style={[styles.welcomeText, { color: textColor }]}>
+              {t('welcomeBack')}, {userProfile?.firstName || userProfile?.fullName || 'User'}! 👋
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -88,18 +123,23 @@ const HomeScreen = () => {
         </View>
 
         <View style={[styles.balanceCard, { backgroundColor: '#800080' }]}>
-          <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>GHS</Text>
-          <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>₵100.00</Text>
+          <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>
+            {accountBalance?.currency || 'GHS'}
+          </Text>
+          <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>
+            ₵{accountBalance?.balance?.toFixed(2) || '0.00'}
+          </Text>
 
           <View style={styles.actionRow}>
-            <ActionBtn icon="download-outline" label="Deposit" onPress={() => router.push('/screens/Deposit')} />
-            <ActionBtn icon="cash-outline" label="Withdraw" onPress={() => router.push('/screens/Withdraw')} />
-            <ActionBtn icon="send-outline" label="Send" onPress={() => router.push('/screens/SendOptions')} />
+            <ActionBtn icon="download-outline" label={t('deposit')} onPress={() => router.push('/screens/Deposit')} />
+            <ActionBtn icon="cash-outline" label={t('withdraw')} onPress={() => router.push('/screens/Withdraw')} />
+            <ActionBtn icon="send-outline" label={t('send')} onPress={() => router.push('/screens/SendOptions')} />
+            <ActionBtn icon="swap-horizontal-outline" label={t('transfer')} onPress={() => router.push('/screens/Convert')} />
           </View>
         </View>
 
-        <ActivityBlock title="Recent Logs" data={recentLogs} cardColor={cardColor} />
-        <ActivityBlock title="Recent Activity" data={recentTx} cardColor={cardColor} withAmounts onItemPress={openDetails} />
+        <ActivityBlock title={t('recentActivity')} data={recentLogs} cardColor={cardColor} />
+        <ActivityBlock title={t('recentTransactions')} data={recentTx} cardColor={cardColor} withAmounts onItemPress={openDetails} />
       </ScrollView>
 
       <View style={[styles.fabBar, { backgroundColor: fabColor }]}>
@@ -119,27 +159,40 @@ const ActionBtn = ({ icon, label, onPress }) => (
   </TouchableOpacity>
 );
 
-const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPress = () => {} }) => (
-  <View style={[styles.activityCard, { backgroundColor: cardColor }]}>
-    <Text style={styles.activityTitle}>{title}</Text>
-    {data.map((it) => (
-      <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
-        <View style={styles.activityIcon}>
-          <Ionicons name={it.icon} size={20} color="#800080" />
-        </View>
-        <View style={{ flex: 1, marginHorizontal: 10 }}>
-          <Text style={styles.activityLabel}>{it.label}</Text>
-          <Text style={styles.activityTime}>{it.time}</Text>
-        </View>
-        {withAmounts && (
-          <Text style={[styles.amount, { color: it.amount >= 0 ? '#009900' : '#cc0000' }]}>
-            {it.amount >= 0 ? `+${it.amount.toFixed(2)}` : `-${Math.abs(it.amount).toFixed(2)}`}
+const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPress = () => {} }) => {
+  const { t } = useTranslation();
+  
+  return (
+    <View style={[styles.activityCard, { backgroundColor: cardColor }]}>
+      <Text style={styles.activityTitle}>{title}</Text>
+      {data && data.length > 0 ? (
+        data.map((it) => (
+          <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
+            <View style={styles.activityIcon}>
+              <Ionicons name={it.icon} size={20} color="#800080" />
+            </View>
+            <View style={{ flex: 1, marginHorizontal: 10 }}>
+              <Text style={styles.activityLabel}>{it.label}</Text>
+              <Text style={styles.activityTime}>{it.time}</Text>
+            </View>
+            {withAmounts && (
+              <Text style={[styles.amount, { color: it.amount >= 0 ? '#009900' : '#cc0000' }]}>
+                {it.amount >= 0 ? `+${it.amount.toFixed(2)}` : `-${Math.abs(it.amount).toFixed(2)}`}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ))
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="document-outline" size={24} color="#999" />
+          <Text style={styles.emptyText}>
+            {title === t('recentActivity') ? t('noRecentActivity') : t('noRecentTransactions')}
           </Text>
-        )}
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+        </View>
+      )}
+    </View>
+  );
+};
 
 const Tab = ({ name, label, onPress, active }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -282,6 +335,17 @@ const styles = StyleSheet.create({
   activeTabText: {
     fontWeight: 'bold',
     color: '#800080',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  emptyText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 

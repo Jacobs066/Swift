@@ -204,4 +204,4 @@ const styles = StyleSheet.create({
   offerBold: {
     fontWeight: 'bold',
   },
-});
+}); 

@@ -1,12 +1,48 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { getSendMethods } from '../api';
 
 const SendOptionsScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const [sendMethods, setSendMethods] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSendMethods();
+  }, []);
+
+  const loadSendMethods = async () => {
+    try {
+      setLoading(true);
+      const methods = await getSendMethods();
+      setSendMethods(methods);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load send methods: ' + error.toString());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendToBank = () => {
+    router.push('/screens/SendToBank');
+  };
+
+  const handleSendToMobile = () => {
+    router.push('/screens/SendToWallet');
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff', justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={isDarkMode ? '#fff' : '#800080'} />
+        <Text style={[styles.loadingText, { color: isDarkMode ? '#fff' : '#000' }]}>Loading send methods...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
@@ -20,9 +56,10 @@ const SendOptionsScreen = () => {
         How would you like to send money?
       </Text>
 
+      {/* Send to Bank Account */}
       <TouchableOpacity
         style={[styles.optionCard, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5' }]}
-        onPress={() => router.push('/screens/SendToBank')}
+        onPress={handleSendToBank}
       >
         <Image
           source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4334/4334959.png' }}
@@ -31,11 +68,13 @@ const SendOptionsScreen = () => {
         <Text style={[styles.optionText, { color: isDarkMode ? '#fff' : '#800080' }]}>
           Send to Bank Account
         </Text>
+        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#fff' : '#800080'} />
       </TouchableOpacity>
 
+      {/* Send to Mobile Wallet */}
       <TouchableOpacity
         style={[styles.optionCard, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5' }]}
-        onPress={() => router.push('/screens/SendToWallet')}
+        onPress={handleSendToMobile}
       >
         <Image
           source={{ uri: 'https://cdn-icons-png.flaticon.com/512/3144/3144456.png' }}
@@ -44,6 +83,7 @@ const SendOptionsScreen = () => {
         <Text style={[styles.optionText, { color: isDarkMode ? '#fff' : '#800080' }]}>
           Send to Mobile Wallet
         </Text>
+        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#fff' : '#800080'} />
       </TouchableOpacity>
     </View>
   );
@@ -68,6 +108,10 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
   },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
   optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -84,5 +128,6 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 18,
     fontWeight: '600',
+    flex: 1,
   },
 });

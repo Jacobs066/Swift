@@ -17,7 +17,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.swift.app",   
+      "package": "com.swift.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -29,6 +29,9 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

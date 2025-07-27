@@ -51,64 +51,66 @@ export default function WalletScreen() {
   const themedStyles = getStyles(isDarkMode);
 
   return (
-    <View style={themedStyles.container}>
-      <View style={themedStyles.header}>
-        <TouchableOpacity style={themedStyles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-circle" size={24} color="#800080" />
-        </TouchableOpacity>
-        <Text style={themedStyles.title}>My Wallet</Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      <View style={themedStyles.container}>
+        <View style={themedStyles.header}>
+          <TouchableOpacity style={themedStyles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+          </TouchableOpacity>
+          <Text style={themedStyles.title}>My Wallet</Text>
+        </View>
 
-      <ScrollView contentContainerStyle={themedStyles.scrollContent}>
-        {walletCards.map((card) => (
-          <View key={card.id} style={[themedStyles.card, { backgroundColor: card.colors[0] }]}>
-            <Text style={themedStyles.cardTitle}>{card.title}</Text>
-            <Text style={themedStyles.cardBalance}>
-              {card.symbol}
-              {card.balance}
-            </Text>
-            <View style={themedStyles.cardDetails}>
-              <View style={themedStyles.detailRow}>
-                <Ionicons name="card-outline" size={16} color="#fff" />
-                <Text style={themedStyles.detailText}>{card.walletId}</Text>
+        <ScrollView contentContainerStyle={themedStyles.scrollContent}>
+          {walletCards.map((card) => (
+            <View key={card.id} style={[themedStyles.card, { backgroundColor: card.colors[0] }]}>
+              <Text style={themedStyles.cardTitle}>{card.title}</Text>
+              <Text style={themedStyles.cardBalance}>
+                {card.symbol}
+                {card.balance}
+              </Text>
+              <View style={themedStyles.cardDetails}>
+                <View style={themedStyles.detailRow}>
+                  <Ionicons name="card-outline" size={16} color="#fff" />
+                  <Text style={themedStyles.detailText}>{card.walletId}</Text>
+                </View>
+                <View style={themedStyles.detailRow}>
+                  <Ionicons name="cash-outline" size={16} color="#fff" />
+                  <Text style={themedStyles.detailText}>{card.currency}</Text>
+                </View>
+                <View style={themedStyles.detailRow}>
+                  <Ionicons name="sync-outline" size={16} color="#fff" />
+                  <Text style={themedStyles.detailText}>{card.lastTx}</Text>
+                </View>
               </View>
-              <View style={themedStyles.detailRow}>
-                <Ionicons name="cash-outline" size={16} color="#fff" />
-                <Text style={themedStyles.detailText}>{card.currency}</Text>
-              </View>
-              <View style={themedStyles.detailRow}>
-                <Ionicons name="sync-outline" size={16} color="#fff" />
-                <Text style={themedStyles.detailText}>{card.lastTx}</Text>
-              </View>
+
+              {/* Transfer Button */}
+              <TouchableOpacity
+                style={themedStyles.transferButton}
+                onPress={() => {
+                  if (card.currency === 'EUR') {
+                    router.push({
+                      pathname: '/screens/EuroScreen',
+                      params: { walletId: card.walletId, currency: 'EUR' },
+                    });
+                  } else if (card.currency === 'USDT') {
+                    router.push({
+                      pathname: '/screens/USDScreen',
+                      params: { walletId: card.walletId, currency: 'USDT' },
+                    });
+                  } else if (card.currency === 'GBP') {
+                    router.push({
+                      pathname: '/screens/GBPScreen',
+                      params: { walletId: card.walletId, currency: 'GBP' },
+                    });
+                  }
+                }}
+              >
+                <Text style={themedStyles.transferButtonText}>Transfer</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Transfer Button */}
-            <TouchableOpacity
-              style={themedStyles.transferButton}
-              onPress={() => {
-                if (card.currency === 'EUR') {
-                  router.push({
-                    pathname: '/screens/EuroScreen',
-                    params: { walletId: card.walletId, currency: 'EUR' },
-                  });
-                } else if (card.currency === 'USDT') {
-                  router.push({
-                    pathname: '/screens/USDScreen',
-                    params: { walletId: card.walletId, currency: 'USDT' },
-                  });
-                } else if (card.currency === 'GBP') {
-                  router.push({
-                    pathname: '/screens/GBPScreen',
-                    params: { walletId: card.walletId, currency: 'GBP' },
-                  });
-                }
-              }}
-            >
-              <Text style={themedStyles.transferButtonText}>Transfer</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </ScrollView>
+          ))}
+        </ScrollView>
+      </View>
     </View>
   );
 }

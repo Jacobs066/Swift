@@ -6,9 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 const MobileMoneyOptionsScreen = () => {
   const router = useRouter();
 
-  const handleWalletPress = (wallet) => {
-    // Navigate to the corresponding screen (you can adjust route)
-    router.push(`/screens/${wallet}Details`);
+  const handleWalletPress = (provider) => {
+    // Navigate to MobileWallet with selected provider
+    router.push({
+      pathname: '/screens/MobileWallet',
+      params: { 
+        provider: provider,
+        providerName: provider === 'MTN' ? 'MTN Mobile Money' : 'TELECEL CASH'
+      }
+    });
   };
 
   return (
@@ -21,7 +27,7 @@ const MobileMoneyOptionsScreen = () => {
       </View>
 
       {/* Title */}
-      <Text style={styles.title}>Select wallet option</Text>
+      <Text style={styles.title}>Select mobile money provider</Text>
 
       {/* Wallet Options */}
       <TouchableOpacity
@@ -37,7 +43,7 @@ const MobileMoneyOptionsScreen = () => {
 
       <TouchableOpacity
         style={styles.walletOption}
-        onPress={() => handleWalletPress('Telecel')}
+        onPress={() => handleWalletPress('TELECEL')}
       >
         <Image
           source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/0/05/Telecel_logo.png' }}

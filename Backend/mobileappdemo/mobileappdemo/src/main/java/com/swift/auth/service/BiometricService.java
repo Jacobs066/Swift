@@ -4,11 +4,15 @@ import com.swift.auth.dto.BiometricLoginRequest;
 import com.swift.auth.dto.BiometricSetupRequest;
 import com.swift.auth.enums.BiometricType;
 import com.swift.auth.models.BiometricData;
+import com.swift.auth.models.OtpEntry;
 import com.swift.auth.models.User;
 import com.swift.auth.repository.BiometricDataRepository;
+import com.swift.auth.repository.OtpRepository;
 import com.swift.auth.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 public class BiometricService {
@@ -25,6 +30,12 @@ public class BiometricService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private OtpRepository otpRepository;
+
+    @Autowired
+    private JavaMailSender mailSender;
 
     /**
      * Setup biometric authentication for a user
@@ -113,13 +124,35 @@ public class BiometricService {
             biometricData.setLastUsedAt(LocalDateTime.now());
             biometricDataRepository.save(biometricData);
 
+            // Generate and send OTP for additional security
+            String otp = String.format("%06d", new Random().nextInt(999999));
+            LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
+            
+            OtpEntry entry = new OtpEntry();
+            entry.setEmail(user.getEmailOrPhone());
+            entry.setOtp(otp);
+            entry.setExpiresAt(expiresAt);
+            otpRepository.save(entry);
+
+            // Send OTP via email
+            try {
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setTo(user.getEmailOrPhone());
+                message.setSubject("Your Biometric Login OTP Code");
+                message.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
+                mailSender.send(message);
+            } catch (Exception e) {
+                System.err.println("Failed to send OTP email: " + e.getMessage());
+            }
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Biometric login successful! Welcome " + user.getUsername());
+            response.put("message", "Biometric authentication successful! OTP sent to your email.");
             response.put("user", Map.of(
                 "id", user.getId(),
                 "username", user.getUsername(),
-                "emailOrPhone", user.getEmailOrPhone()
+                "emailOrPhone", user.getEmailOrPhone(),
+                "phoneNumber", user.getEmailOrPhone() // For frontend compatibility
             ));
 
             return ResponseEntity.ok(response);

@@ -7,10 +7,13 @@ import {
   FlatList,
   TextInput,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { initiateSend } from '../api';
 
 const banks = [
   {
@@ -66,13 +69,60 @@ const banks = [
 const SendToBankScreen = () => {
   const [selectedBank, setSelectedBank] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
+  const [processing, setProcessing] = useState(false);
   const router = useRouter();
   const { isDarkMode } = useTheme();
 
-  const handleSend = () => {
-    if (selectedBank && accountNumber && amount) {
-      router.push('/screens/SendSuccess');
+  const validateForm = () => {
+    if (!selectedBank) {
+      Alert.alert('Error', 'Please select a bank');
+      return false;
+    }
+    if (!accountNumber || accountNumber.length < 10) {
+      Alert.alert('Error', 'Please enter a valid account number (minimum 10 digits)');
+      return false;
+    }
+    if (!accountName.trim()) {
+      Alert.alert('Error', 'Please enter the account holder name');
+      return false;
+    }
+    if (!amount || parseFloat(amount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSend = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setProcessing(true);
+      
+      const sendData = {
+        method: 'bank',
+        amount: parseFloat(amount),
+        recipientDetails: {
+          bank: selectedBank,
+          accountNumber: accountNumber,
+          accountName: accountName,
+        }
+      };
+
+      const result = await initiateSend('bank', parseFloat(amount), sendData.recipientDetails);
+      
+      Alert.alert('Success', 'Money sent successfully!', [
+        { 
+          text: 'OK', 
+          onPress: () => router.push('/screens/SendSuccess') 
+        }
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send money: ' + error.toString());
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -125,6 +175,22 @@ const SendToBankScreen = () => {
         keyboardType="numeric"
         value={accountNumber}
         onChangeText={setAccountNumber}
+        maxLength={10}
+      />
+
+      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>Account Holder Name</Text>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+            color: isDarkMode ? '#fff' : '#000',
+          },
+        ]}
+        placeholder="Enter account holder name"
+        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
+        value={accountName}
+        onChangeText={setAccountName}
       />
 
       <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>Amount</Text>
@@ -147,13 +213,17 @@ const SendToBankScreen = () => {
         style={[
           styles.sendButton,
           {
-            backgroundColor: selectedBank && accountNumber && amount ? '#800080' : '#ccc',
+            backgroundColor: selectedBank && accountNumber && accountName && amount && !processing ? '#800080' : '#ccc',
           },
         ]}
         onPress={handleSend}
-        disabled={!selectedBank || !accountNumber || !amount}
+        disabled={!selectedBank || !accountNumber || !accountName || !amount || processing}
       >
-        <Text style={styles.sendText}>Send</Text>
+        {processing ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.sendText}>Send</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

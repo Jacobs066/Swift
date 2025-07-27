@@ -2,16 +2,20 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
 import { ProfileProvider } from './context/ProfileContext';
-import { ThemeProvider } from './context/ThemeContext'; // ✅ Import ThemeProvider
+import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
+import '../i18n'; // Import i18n configuration
 
 export default function Layout() {
   return (
     <GestureHandlerRootView style={styles.container}>
-      <ThemeProvider> {/* ✅ Wrap ThemeProvider first */}
-        <ProfileProvider> {/* ✅ Wrap ProfileProvider inside */}
-          <Stack screenOptions={{ headerShown: false }} />
-        </ProfileProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <ProfileProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+          </ProfileProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </GestureHandlerRootView>
   );
 }

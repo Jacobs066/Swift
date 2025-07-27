@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext'; // ✅ Using your context
+import { signup } from '../api';
 
 const SignUpScreen = () => {
   const router = useRouter();
@@ -25,20 +26,52 @@ const SignUpScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState({ fullName: '', email: '', phoneNumber: '', password: '', confirmPassword: '', api: '' });
 
-  const handleSignUp = () => {
-    if (!fullName || !email || !phoneNumber || !password || !confirmPassword) {
-      alert('Please fill out all fields');
-      return;
+  const handleSignUp = async () => {
+    let hasError = false;
+    let newErrors = { fullName: '', email: '', phoneNumber: '', password: '', confirmPassword: '', api: '' };
+    if (!fullName) {
+      newErrors.fullName = 'Full name is required';
+      hasError = true;
     }
-
-    if (password !== confirmPassword) {
-      alert('Passwords do not match');
-      return;
+    if (!email) {
+      newErrors.email = 'Email is required';
+      hasError = true;
     }
-
-    alert('Account created successfully!');
-    router.push('/screens/LanguageSelectionScreen');
+    if (!phoneNumber) {
+      newErrors.phoneNumber = 'Phone number is required';
+      hasError = true;
+    }
+    if (!password) {
+      newErrors.password = 'Password is required';
+      hasError = true;
+    }
+    if (!confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password';
+      hasError = true;
+    }
+    if (password && confirmPassword && password !== confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+      hasError = true;
+    }
+    setErrors(newErrors);
+    if (hasError) return;
+    try {
+      await signup(fullName, email, phoneNumber, password);
+      setErrors({ fullName: '', email: '', phoneNumber: '', password: '', confirmPassword: '', api: '' });
+      
+      // Navigate to OTP verification for signup
+      router.push({
+        pathname: '/screens/OTPVerificationScreen',
+        params: {
+          phoneNumber: phoneNumber,
+          purpose: 'signup'
+        }
+      });
+    } catch (error) {
+      setErrors(prev => ({ ...prev, api: error.toString() }));
+    }
   };
 
   const colors = {
@@ -78,8 +111,12 @@ const SignUpScreen = () => {
         placeholder="Enter full name"
         placeholderTextColor={colors.placeholder}
         value={fullName}
-        onChangeText={setFullName}
+        onChangeText={text => {
+          setFullName(text);
+          if (errors.fullName) setErrors(prev => ({ ...prev, fullName: '' }));
+        }}
       />
+      {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
 
       {/* Email */}
       <Text style={[styles.label, { color: colors.primary }]}>Email</Text>
@@ -94,8 +131,12 @@ const SignUpScreen = () => {
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={text => {
+          setEmail(text);
+          if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+        }}
       />
+      {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
       {/* Phone Number */}
       <Text style={[styles.label, { color: colors.primary }]}>Phone Number</Text>
@@ -109,8 +150,12 @@ const SignUpScreen = () => {
         placeholderTextColor={colors.placeholder}
         keyboardType="phone-pad"
         value={phoneNumber}
-        onChangeText={setPhoneNumber}
+        onChangeText={text => {
+          setPhoneNumber(text);
+          if (errors.phoneNumber) setErrors(prev => ({ ...prev, phoneNumber: '' }));
+        }}
       />
+      {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber}</Text> : null}
 
       {/* Password */}
       <Text style={[styles.label, { color: colors.primary }]}>Password</Text>
@@ -124,7 +169,10 @@ const SignUpScreen = () => {
           placeholderTextColor={colors.placeholder}
           secureTextEntry={!showPassword}
           value={password}
-          onChangeText={setPassword}
+          onChangeText={text => {
+            setPassword(text);
+            if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
+          }}
         />
         <TouchableOpacity onPress={() => setShowPassword(prev => !prev)}>
           <Ionicons
@@ -134,6 +182,7 @@ const SignUpScreen = () => {
           />
         </TouchableOpacity>
       </View>
+      {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
 
       {/* Confirm Password */}
       <Text style={[styles.label, { color: colors.primary }]}>Confirm Password</Text>
@@ -147,7 +196,10 @@ const SignUpScreen = () => {
           placeholderTextColor={colors.placeholder}
           secureTextEntry={!showConfirmPassword}
           value={confirmPassword}
-          onChangeText={setConfirmPassword}
+          onChangeText={text => {
+            setConfirmPassword(text);
+            if (errors.confirmPassword) setErrors(prev => ({ ...prev, confirmPassword: '' }));
+          }}
         />
         <TouchableOpacity onPress={() => setShowConfirmPassword(prev => !prev)}>
           <Ionicons
@@ -157,11 +209,13 @@ const SignUpScreen = () => {
           />
         </TouchableOpacity>
       </View>
+      {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
 
       {/* Sign Up Button */}
       <TouchableOpacity style={[styles.signupButton, { backgroundColor: colors.primary }]} onPress={handleSignUp}>
         <Text style={styles.signupText}>Sign Up</Text>
       </TouchableOpacity>
+      {errors.api ? <Text style={styles.errorText}>{errors.api}</Text> : null}
 
       <Text style={[styles.loginPrompt, { color: colors.placeholder }]}>
         Already have a profile?{' '}
@@ -240,6 +294,12 @@ const styles = StyleSheet.create({
   loginLink: {
     textDecorationLine: 'underline',
     fontWeight: 'bold',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: 2,
   },
 });
 

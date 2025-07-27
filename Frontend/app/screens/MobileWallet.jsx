@@ -7,28 +7,73 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useTheme } from '../context/ThemeContext'; // ✅ Your custom theme hook
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import { initiateWithdraw } from '../api';
 
 const MobileWalletWithdrawScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme(); // ✅ Get from your context
+  const { t } = useTranslation();
+  const params = useLocalSearchParams();
+  const { isDarkMode } = useTheme();
 
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
+  const [processing, setProcessing] = useState(false);
 
-  const handleWithdraw = () => {
+  // Get provider info from navigation params
+  const provider = params.provider || 'MTN';
+  const providerName = params.providerName || 'MTN Mobile Money';
+
+  const handleWithdraw = async () => {
     if (!fullName || !phoneNumber || !amount || !reference) {
-      Alert.alert('Error', 'All fields are required');
+      Alert.alert(t('error'), t('allFieldsRequired') || 'All fields are required');
       return;
     }
 
-    Alert.alert('Success', `₵${amount} withdrawal request sent to ${phoneNumber}`);
-    router.back();
+    if (parseFloat(amount) <= 0) {
+      Alert.alert(t('error'), t('enterValidAmount') || 'Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      
+      const withdrawData = {
+        method: 'mobile_money',
+        provider: provider,
+        amount: parseFloat(amount),
+        recipientDetails: {
+          fullName: fullName.trim(),
+          phoneNumber: phoneNumber.trim(),
+          reference: reference.trim(),
+          provider: providerName
+        }
+      };
+
+      await initiateWithdraw('mobile_money', parseFloat(amount), withdrawData.recipientDetails);
+      
+      Alert.alert(
+        t('success'), 
+        t('withdrawalInitiatedSuccess') || `₵${amount} withdrawal request sent to ${phoneNumber}`,
+        [
+          { 
+            text: t('continue'), 
+            onPress: () => router.back() 
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert(t('error'), t('withdrawalFailed') || 'Failed to initiate withdrawal: ' + error.toString());
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const styles = getStyles(isDarkMode);
@@ -39,9 +84,15 @@ const MobileWalletWithdrawScreen = () => {
         <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#800080' : '#800080'} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>Withdraw to Mobile Wallet</Text>
+      <Text style={styles.title}>{t('withdrawToMobileWallet') || 'Withdraw to Mobile Wallet'}</Text>
+      
+      {/* Provider Info */}
+      <View style={styles.providerInfo}>
+        <Text style={styles.providerLabel}>{t('selectedProvider') || 'Selected Provider:'}</Text>
+        <Text style={styles.providerName}>{providerName}</Text>
+      </View>
 
-      <Text style={styles.label}>Full Name</Text>
+      <Text style={styles.label}>{t('fullName') || 'Full Name'}</Text>
       <TextInput
         style={styles.input}
         placeholder="John Doe"
@@ -50,7 +101,7 @@ const MobileWalletWithdrawScreen = () => {
         onChangeText={setFullName}
       />
 
-      <Text style={styles.label}>Phone Number</Text>
+      <Text style={styles.label}>{t('phoneNumber') || 'Phone Number'}</Text>
       <TextInput
         style={styles.input}
         placeholder="+233501234567"
@@ -60,7 +111,7 @@ const MobileWalletWithdrawScreen = () => {
         onChangeText={setPhoneNumber}
       />
 
-      <Text style={styles.label}>Amount (GHS)</Text>
+      <Text style={styles.label}>{t('amount')} (GHS)</Text>
       <TextInput
         style={styles.input}
         placeholder="100.00"
@@ -70,17 +121,25 @@ const MobileWalletWithdrawScreen = () => {
         onChangeText={setAmount}
       />
 
-      <Text style={styles.label}>Reference</Text>
+      <Text style={styles.label}>{t('reference') || 'Reference'}</Text>
       <TextInput
         style={styles.input}
-        placeholder="Withdrawal for school fees"
+        placeholder={t('withdrawalReference') || "Withdrawal for school fees"}
         placeholderTextColor={isDarkMode ? '#aaa' : '#999'}
         value={reference}
         onChangeText={setReference}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleWithdraw}>
-        <Text style={styles.buttonText}>Withdraw</Text>
+      <TouchableOpacity 
+        style={[styles.button, processing && styles.disabledButton]} 
+        onPress={handleWithdraw}
+        disabled={processing}
+      >
+        {processing ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>{t('withdraw') || 'Withdraw'}</Text>
+        )}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -104,6 +163,22 @@ const getStyles = (isDark) =>
       color: '#800080',
       marginBottom: 25,
     },
+    providerInfo: {
+      backgroundColor: isDark ? '#1e1e1e' : '#f2e6f7',
+      padding: 15,
+      borderRadius: 10,
+      marginBottom: 20,
+    },
+    providerLabel: {
+      fontSize: 12,
+      color: isDark ? '#ccc' : '#666',
+      marginBottom: 5,
+    },
+    providerName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#800080',
+    },
     label: {
       fontSize: 14,
       color: isDark ? '#ccc' : '#800080',
@@ -125,6 +200,9 @@ const getStyles = (isDark) =>
       borderRadius: 10,
       alignItems: 'center',
       marginTop: 10,
+    },
+    disabledButton: {
+      opacity: 0.6,
     },
     buttonText: {
       color: '#fff',

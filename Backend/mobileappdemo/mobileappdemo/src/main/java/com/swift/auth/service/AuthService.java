@@ -182,4 +182,70 @@ public class AuthService {
         User user = userOpt.get();
         return ResponseEntity.ok("Login successful! Welcome " + user.getUsername());
     }
+
+    public ResponseEntity<?> sendOtp(String phoneNumber, String purpose) {
+        try {
+            // Find user by phone number
+            Optional<User> userOpt = userRepository.findByEmailOrPhone(phoneNumber);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.badRequest().body("User not found");
+            }
+
+            User user = userOpt.get();
+
+            // Generate and send OTP
+            String otp = String.format("%06d", new Random().nextInt(999999));
+            LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
+            
+            OtpEntry entry = new OtpEntry();
+            entry.setEmail(user.getEmailOrPhone());
+            entry.setOtp(otp);
+            entry.setExpiresAt(expiresAt);
+            otpRepository.save(entry);
+
+            // Send OTP via email
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(user.getEmailOrPhone());
+            message.setSubject("Your OTP Code");
+            message.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
+            mailSender.send(message);
+
+            return ResponseEntity.ok("OTP sent successfully to your email");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to send OTP: " + e.getMessage());
+        }
+    }
+
+    public ResponseEntity<?> resendOtp(String phoneNumber, String purpose) {
+        try {
+            // Find user by phone number
+            Optional<User> userOpt = userRepository.findByEmailOrPhone(phoneNumber);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.badRequest().body("User not found");
+            }
+
+            User user = userOpt.get();
+
+            // Generate and send new OTP
+            String otp = String.format("%06d", new Random().nextInt(999999));
+            LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
+            
+            OtpEntry entry = new OtpEntry();
+            entry.setEmail(user.getEmailOrPhone());
+            entry.setOtp(otp);
+            entry.setExpiresAt(expiresAt);
+            otpRepository.save(entry);
+
+            // Send OTP via email
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(user.getEmailOrPhone());
+            message.setSubject("Your New OTP Code");
+            message.setText("Your new OTP is: " + otp + "\nIt expires in 10 minutes.");
+            mailSender.send(message);
+
+            return ResponseEntity.ok("New OTP sent successfully to your email");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to resend OTP: " + e.getMessage());
+        }
+    }
 }

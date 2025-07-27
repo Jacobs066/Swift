@@ -1,10 +1,11 @@
 // app/screens/ConvertFromEuroScreen.jsx
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
+import { getTransferRates, initiateTransfer } from '../api';
 
 const toWallets = ['GHS', 'USD', 'GBP'];
 
@@ -15,21 +16,75 @@ const ConvertFromEuroScreen = () => {
   const [toWallet, setToWallet] = useState('GHS');
   const [amount, setAmount] = useState('');
   const [converted, setConverted] = useState(null);
+  const [transferRates, setTransferRates] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
 
-  const convertRate = {
-    EUR: { GHS: 12.80, USD: 1.10, GBP: 0.85 },
+  useEffect(() => {
+    loadTransferRates();
+  }, []);
+
+  const loadTransferRates = async () => {
+    try {
+      setLoading(true);
+      const rates = await getTransferRates();
+      setTransferRates(rates);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load transfer rates: ' + error.toString());
+      // Fallback to hardcoded rates if API fails
+      setTransferRates({
+        EUR: { GHS: 12.80, USD: 1.10, GBP: 0.85 },
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleConvert = () => {
-    if (!amount || isNaN(amount)) return;
-    const rate = convertRate['EUR'][toWallet] || 1;
+    if (!amount || isNaN(amount)) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    const rate = transferRates['EUR']?.[toWallet] || 1;
     const result = (parseFloat(amount) * rate).toFixed(2);
     setConverted(result);
+  };
+
+  const handleTransfer = async () => {
+    if (!amount || isNaN(amount)) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    if (!converted) {
+      Alert.alert('Error', 'Please convert the amount first');
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      const result = await initiateTransfer('EUR', toWallet, parseFloat(amount));
+      Alert.alert('Success', 'Transfer initiated successfully!', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to initiate transfer: ' + error.toString());
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const backgroundColor = isDarkMode ? '#121212' : '#fff';
   const textColor = isDarkMode ? '#fff' : '#000';
   const cardColor = isDarkMode ? '#1e1e1e' : '#f2f2f2';
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#800080" />
+        <Text style={[styles.loadingText, { color: textColor }]}>Loading transfer rates...</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView style={[styles.container, { backgroundColor }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -72,6 +127,21 @@ const ConvertFromEuroScreen = () => {
               {amount} EUR = {converted} {toWallet}
             </Text>
           )}
+
+          {/* Transfer Button */}
+          {converted && (
+            <TouchableOpacity 
+              style={[styles.transferBtn, processing && styles.disabledBtn]} 
+              onPress={handleTransfer}
+              disabled={processing}
+            >
+              {processing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.transferText}>Transfer</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -82,6 +152,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 20, paddingTop: 40 },
   back: { marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 16 },
+  loadingText: { marginTop: 10, fontSize: 16 },
   card: {
     borderRadius: 16,
     padding: 20,
@@ -112,6 +183,20 @@ const styles = StyleSheet.create({
   },
   convertText: { color: '#fff', fontWeight: 'bold' },
   resultText: { marginTop: 20, fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
+  transferBtn: {
+    backgroundColor: '#009900',
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  disabledBtn: {
+    backgroundColor: '#666',
+  },
+  transferText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 });
 
 export default ConvertFromEuroScreen;
