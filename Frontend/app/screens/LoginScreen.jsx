@@ -168,18 +168,28 @@ const LoginScreen = () => {
     if (hasError) return;
     try {
       const data = await login(email, password);
-      await AsyncStorage.setItem('token', data.token);
+      // Only save token if it exists
+      if (data.token) {
+        await AsyncStorage.setItem('token', data.token);
+      }
       await AsyncStorage.setItem('lastLoginEmail', email); // Store email for biometric login
       setErrors({ email: '', password: '', api: '' });
-      
-      // Navigate to OTP verification with user's phone number
-      router.push({
-        pathname: '/screens/OTPVerificationScreen',
-        params: {
-          phoneNumber: data.phoneNumber || email, // Use phone number from response or fallback to email
-          purpose: 'login'
-        }
-      });
+      // If OTP is required, navigate to OTP verification
+      if (data.message && data.message.includes('OTP')) {
+        router.push({
+          pathname: '/screens/OTPVerificationScreen',
+          params: {
+            phoneNumber: data.phoneNumber || email, // Use phone number from response or fallback to email
+            purpose: 'login'
+          }
+        });
+      } else if (data.token) {
+        // If token is present, login is complete, navigate to home
+        router.push('/screens/HomeScreen');
+      } else {
+        // Handle other cases or show a message
+        setErrors(prev => ({ ...prev, api: data.message || 'Unknown login response' }));
+      }
     } catch (error) {
       setErrors(prev => ({ ...prev, api: error.toString() }));
     }
