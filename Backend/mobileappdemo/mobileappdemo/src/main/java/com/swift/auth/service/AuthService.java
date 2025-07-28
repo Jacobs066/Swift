@@ -64,13 +64,20 @@ public class AuthService {
         user.setEmailOrPhone(request.getEmailOrPhone());
         user.setUsername(request.getUsername());
         user.setPassword(request.getPassword()); // In production, this should be hashed
+        // Set email field if input is an email
+        if (request.getEmailOrPhone() != null && request.getEmailOrPhone().contains("@")) {
+            user.setEmail(request.getEmailOrPhone());
+        } else {
+            // If not an email, do not proceed with signup (or you can handle phone signup differently)
+            logger.warn("Signup attempted with non-email identifier: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Signup requires a valid email address."));
+        }
         userRepository.save(user);
         logger.info("User created: {}", user.getUsername());
 
         // Send welcome email
         try {
-            logger.info("Attempting to send welcome email to: {}", user.getEmailOrPhone());
-            
+            logger.info("Attempting to send welcome email to: {}", user.getEmail());
             SimpleMailMessage welcomeMessage = new SimpleMailMessage();
             welcomeMessage.setTo(user.getEmail());
             welcomeMessage.setSubject("Welcome to Swift - Registration Successful!");
@@ -86,32 +93,52 @@ public class AuthService {
                 "The Swift Team",
                 user.getUsername(),
                 user.getUsername(),
-                user.getEmailOrPhone(),
+                user.getEmail(),
                 user.getCreatedAt().toString()
             ));
-            
             logger.info("Sending welcome email...");
             mailSender.send(welcomeMessage);
             logger.info("Welcome email sent successfully!");
-            
         } catch (Exception e) {
-            // Log the error but don't fail the signup
             logger.error("Failed to send welcome email: {}", e.getMessage());
             e.printStackTrace();
         }
 
+        // Generate and send OTP to email
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
+        OtpEntry entry = new OtpEntry();
+        entry.setEmail(user.getEmail());
+        entry.setOtp(otp);
+        entry.setExpiresAt(expiresAt);
+        otpRepository.save(entry);
+        logger.info("OTP generated and saved for user: {}", user.getUsername());
+        try {
+            SimpleMailMessage otpMessage = new SimpleMailMessage();
+            otpMessage.setTo(user.getEmail());
+            otpMessage.setSubject("Your Registration OTP Code");
+            otpMessage.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
+            mailSender.send(otpMessage);
+            logger.info("OTP sent to email: {}", user.getEmail());
+        } catch (Exception e) {
+            logger.error("Failed to send OTP email: {}", e.getMessage());
+        }
+
         String successMessage = String.format(
-            "Registration successful!\nUsername: %s\nEmail/Phone: %s\nAccount created: %s\n\nA welcome email has been sent to your email address.",
+            "Registration successful!\nUsername: %s\nEmail: %s\nAccount created: %s\n\nA welcome email and OTP have been sent to your email address.",
             user.getUsername(),
-            user.getEmailOrPhone(),
+            user.getEmail(),
             user.getCreatedAt().toString()
         );
-
         return ResponseEntity.ok(Map.of("success", true, "message", successMessage));
     }
 
     public ResponseEntity<?> login(LoginRequest request) {
         logger.info("Processing login for: {}", request.getEmailOrPhone());
+        if (request.getPassword() == null || request.getPassword().isEmpty()) {
+            logger.warn("Login attempt with null or empty password for: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Password is required"));
+        }
         // Find user by email/phone
         Optional<User> userOpt = userRepository.findByEmailOrPhone(request.getEmailOrPhone());
         if (userOpt.isEmpty()) {
