@@ -163,24 +163,24 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
   const { t } = useTranslation();
   
   return (
-    <View style={[styles.activityCard, { backgroundColor: cardColor }]}>
-      <Text style={styles.activityTitle}>{title}</Text>
+  <View style={[styles.activityCard, { backgroundColor: cardColor }]}>
+    <Text style={styles.activityTitle}>{title}</Text>
       {data && data.length > 0 ? (
         data.map((it) => (
-          <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
-            <View style={styles.activityIcon}>
-              <Ionicons name={it.icon} size={20} color="#800080" />
-            </View>
-            <View style={{ flex: 1, marginHorizontal: 10 }}>
-              <Text style={styles.activityLabel}>{it.label}</Text>
-              <Text style={styles.activityTime}>{it.time}</Text>
-            </View>
-            {withAmounts && (
-              <Text style={[styles.amount, { color: it.amount >= 0 ? '#009900' : '#cc0000' }]}>
-                {it.amount >= 0 ? `+${it.amount.toFixed(2)}` : `-${Math.abs(it.amount).toFixed(2)}`}
-              </Text>
-            )}
-          </TouchableOpacity>
+      <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
+        <View style={styles.activityIcon}>
+          <Ionicons name={it.icon} size={20} color="#800080" />
+        </View>
+        <View style={{ flex: 1, marginHorizontal: 10 }}>
+          <Text style={styles.activityLabel}>{it.label}</Text>
+          <Text style={styles.activityTime}>{it.time}</Text>
+        </View>
+        {withAmounts && (
+          <Text style={[styles.amount, { color: it.amount >= 0 ? '#009900' : '#cc0000' }]}>
+            {it.amount >= 0 ? `+${it.amount.toFixed(2)}` : `-${Math.abs(it.amount).toFixed(2)}`}
+          </Text>
+        )}
+      </TouchableOpacity>
         ))
       ) : (
         <View style={styles.emptyState}>
@@ -190,8 +190,8 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
           </Text>
         </View>
       )}
-    </View>
-  );
+  </View>
+);
 };
 
 const Tab = ({ name, label, onPress, active }) => {

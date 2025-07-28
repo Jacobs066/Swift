@@ -222,7 +222,7 @@ const SendToBankScreen = () => {
         {processing ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text style={styles.sendText}>Send</Text>
+        <Text style={styles.sendText}>Send</Text>
         )}
       </TouchableOpacity>
     </View>

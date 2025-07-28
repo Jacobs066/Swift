@@ -70,24 +70,24 @@ Thank you for using Swift!`;
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Back Arrow */}
-        <TouchableOpacity style={styles.backIcon} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-circle" size={32} color={isDarkMode ? '#fff' : '#800080'} />
-        </TouchableOpacity>
+      {/* Back Arrow */}
+      <TouchableOpacity style={styles.backIcon} onPress={() => router.back()}>
+        <Ionicons name="arrow-back-circle" size={32} color={isDarkMode ? '#fff' : '#800080'} />
+      </TouchableOpacity>
 
-        {/* Success Icon */}
-        <Image
-          source={{ uri: 'https://cdn-icons-png.flaticon.com/512/845/845646.png' }}
-          style={styles.successIcon}
-        />
+      {/* Success Icon */}
+      <Image
+        source={{ uri: 'https://cdn-icons-png.flaticon.com/512/845/845646.png' }}
+        style={styles.successIcon}
+      />
 
-        <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#800080' }]}>
-          Transfer Successful!
-        </Text>
+      <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#800080' }]}>
+        Transfer Successful!
+      </Text>
 
-        <Text style={[styles.subtitle, { color: isDarkMode ? '#aaa' : '#333' }]}>
-          Your money has been sent successfully.
-        </Text>
+      <Text style={[styles.subtitle, { color: isDarkMode ? '#aaa' : '#333' }]}>
+        Your money has been sent successfully.
+      </Text>
 
         {/* Transaction Details Card */}
         <View style={[styles.detailsCard, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f8f8' }]}>
@@ -121,8 +121,8 @@ Thank you for using Swift!`;
             <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
               {transactionDetails.reference}
             </Text>
-          </View>
-          
+      </View>
+
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>Status:</Text>
             <Text style={[styles.detailValue, { color: '#00E676' }]}>
@@ -136,8 +136,8 @@ Thank you for using Swift!`;
           style={[styles.button, { backgroundColor: '#800080' }]} 
           onPress={() => router.push('/screens/HomeScreen')}
         >
-          <Text style={styles.buttonText}>Back to Home</Text>
-        </TouchableOpacity>
+        <Text style={styles.buttonText}>Back to Home</Text>
+      </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.secondaryButton} 
@@ -146,13 +146,13 @@ Thank you for using Swift!`;
           <Text style={styles.secondaryButtonText}>View Transaction History</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleDownloadReceipt}>
-          <Text style={styles.secondaryButtonText}>Download Receipt</Text>
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleDownloadReceipt}>
+        <Text style={styles.secondaryButtonText}>Download Receipt</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleShareReceipt}>
-          <Text style={styles.secondaryButtonText}>Share Receipt</Text>
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleShareReceipt}>
+        <Text style={styles.secondaryButtonText}>Share Receipt</Text>
+      </TouchableOpacity>
       </ScrollView>
     </View>
   );

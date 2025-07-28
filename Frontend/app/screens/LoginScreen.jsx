@@ -58,14 +58,14 @@ const LoginScreen = () => {
       setErrors({ email: '', password: '', api: '' });
 
       // Check if device supports biometric authentication
-      const compatible = await LocalAuthentication.hasHardwareAsync();
+    const compatible = await LocalAuthentication.hasHardwareAsync();
       if (!compatible) {
         Alert.alert('Not Supported', 'Biometric authentication is not supported on this device.');
         return;
       }
 
       // Check if user has biometrics enrolled
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
       if (!enrolled) {
         Alert.alert('Not Set Up', 'No biometrics enrolled on this device. Please set up fingerprint or face recognition.');
         return;
@@ -79,8 +79,8 @@ const LoginScreen = () => {
       }
 
       // Authenticate with device biometrics
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Login with biometrics',
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Login with biometrics',
         fallbackLabel: 'Use password',
         cancelLabel: 'Cancel',
       });
@@ -145,7 +145,7 @@ const LoginScreen = () => {
         Alert.alert('Biometric Not Set Up', 'Biometric authentication is not set up for this device. Please login with email and password first.');
       } else if (error.toString().includes('Biometric verification failed')) {
         Alert.alert('Verification Failed', 'Biometric verification failed. Please try again or use email/password login.');
-      } else {
+    } else {
         Alert.alert('Login Failed', error.toString() || 'Biometric login failed. Please try again.');
       }
     } finally {
@@ -262,8 +262,8 @@ const LoginScreen = () => {
           </>
         ) : (
           <>
-            <Ionicons name="finger-print" size={24} color={colors.primary} />
-            <Text style={[styles.biometricText, { color: colors.primary }]}>Login with biometrics</Text>
+        <Ionicons name="finger-print" size={24} color={colors.primary} />
+        <Text style={[styles.biometricText, { color: colors.primary }]}>Login with biometrics</Text>
           </>
         )}
       </TouchableOpacity>

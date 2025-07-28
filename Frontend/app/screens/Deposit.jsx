@@ -167,17 +167,17 @@ const DepositScreen = () => {
             onPress={() => handleDeposit({ id: 'card', name: t('depositWithCard') || 'Deposit with Card' })}
             disabled={processing}
           >
-            <Ionicons name="card-outline" size={22} color={colors.accent} style={{ marginRight: 10 }} />
+        <Ionicons name="card-outline" size={22} color={colors.accent} style={{ marginRight: 10 }} />
             <Text style={[styles.optionText, { color: colors.accent }]}>{t('depositWithCard') || 'Deposit with Card'}</Text>
             {processing && <ActivityIndicator size="small" color={colors.accent} style={{ marginLeft: 10 }} />}
-          </TouchableOpacity>
+      </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.optionButton, { backgroundColor: colors.card }]}
             onPress={() => handleDeposit({ id: 'mobile', name: t('depositWithMobile') || 'Deposit with Mobile Money' })}
             disabled={processing}
           >
-            <Ionicons name="cash-outline" size={22} color={colors.accent} style={{ marginRight: 10 }} />
+        <Ionicons name="cash-outline" size={22} color={colors.accent} style={{ marginRight: 10 }} />
             <Text style={[styles.optionText, { color: colors.accent }]}>{t('depositWithMobile') || 'Deposit with Mobile Money'}</Text>
             {processing && <ActivityIndicator size="small" color={colors.accent} style={{ marginLeft: 10 }} />}
           </TouchableOpacity>
@@ -190,7 +190,7 @@ const DepositScreen = () => {
             <Ionicons name="business-outline" size={22} color={colors.accent} style={{ marginRight: 10 }} />
             <Text style={[styles.optionText, { color: colors.accent }]}>{t('depositWithBank') || 'Deposit with Bank'}</Text>
             {processing && <ActivityIndicator size="small" color={colors.accent} style={{ marginLeft: 10 }} />}
-          </TouchableOpacity>
+      </TouchableOpacity>
         </>
       )}
     </ScrollView>
