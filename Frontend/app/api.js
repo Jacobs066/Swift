@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Set your backend API base URL here
-export const API_URL = 'http://192.168.50.135:8082'; // Updated to computer's IP for device testing
+export const API_URL = 'http://192.168.137.1:8082'; // Updated to new backend IP for device testing
 
 export const login = async (email, password) => {
   try {
