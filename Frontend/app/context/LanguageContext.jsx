@@ -68,4 +68,6 @@ export const LanguageProvider = ({ children }) => {
       {children}
     </LanguageContext.Provider>
   );
-}; 
+};
+
+export default LanguageProvider; 

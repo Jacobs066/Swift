@@ -4,14 +4,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Set your backend API base URL here
 export const API_URL = 'http://192.168.137.1:8082'; // Updated to new backend IP for device testing
 
-export const login = async (email, password) => {
+export const login = async (emailOrPhone, password) => {
   try {
     const response = await axios.post(`${API_URL}/api/auth/login`, {
-      email,
+      emailOrPhone,
       password,
     });
+    console.log('Login response:', response);
     return response.data;
   } catch (error) {
+    console.log('Login error:', error);
     throw error.response?.data?.message || 'Login failed';
   }
 };
@@ -24,8 +26,10 @@ export const signup = async (fullName, email, phoneNumber, password) => {
       password: password,
       confirmPassword: password, // Use same password for confirmation
     });
+    console.log('Signup response:', response);
     return response.data;
   } catch (error) {
+    console.log('Signup error:', error);
     throw error.response?.data?.message || 'Signup failed';
   }
 };
@@ -480,3 +484,46 @@ export const removeBiometricDevice = async (biometricId, emailOrPhone) => {
     throw error.response?.data?.message || 'Failed to remove biometric device';
   }
 }; 
+
+// Default export for the API module
+const api = {
+  login,
+  signup,
+  getUserProfile,
+  getAccountBalance,
+  getRecentTransactions,
+  getActivityLogs,
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  getDepositMethods,
+  initiateDeposit,
+  processDeposit,
+  getWithdrawMethods,
+  initiateWithdraw,
+  getSendMethods,
+  initiateSend,
+  processSend,
+  getTransferRates,
+  initiateTransfer,
+  processTransfer,
+  getTransactionHistory,
+  getTransactionById,
+  getTransactionSummary,
+  updateTransactionStatus,
+  getTransactionsByStatus,
+  getTransactionsByType,
+  sendOTP,
+  verifyOTP,
+  resendOTP,
+  getUserRecentTransactions,
+  biometricLogin,
+  setupBiometric,
+  checkBiometricStatus,
+  getBiometricDevices,
+  removeBiometricDevice,
+  API_URL
+};
+
+export default api; 

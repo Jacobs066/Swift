@@ -129,7 +129,7 @@ public class BiometricService {
             LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
             
             OtpEntry entry = new OtpEntry();
-            entry.setEmail(user.getEmailOrPhone());
+            entry.setEmail(user.getEmail());
             entry.setOtp(otp);
             entry.setExpiresAt(expiresAt);
             otpRepository.save(entry);
@@ -137,7 +137,7 @@ public class BiometricService {
             // Send OTP via email
             try {
                 SimpleMailMessage message = new SimpleMailMessage();
-                message.setTo(user.getEmailOrPhone());
+                message.setTo(user.getEmail());
                 message.setSubject("Your Biometric Login OTP Code");
                 message.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
                 mailSender.send(message);

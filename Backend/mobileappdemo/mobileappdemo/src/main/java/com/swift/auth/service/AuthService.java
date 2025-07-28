@@ -14,11 +14,15 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class AuthService {
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -30,24 +34,29 @@ public class AuthService {
     private JavaMailSender mailSender;
 
     public ResponseEntity<?> signup(SignupRequest request) {
+        logger.info("Processing signup for: {}", request.getEmailOrPhone());
         // Validate password length (8 characters or more)
         if (request.getPassword() == null || request.getPassword().length() < 8) {
-            return ResponseEntity.badRequest().body("Password must be at least 8 characters");
+            logger.warn("Password too short for signup: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Password must be at least 8 characters"));
         }
 
         // Validate password confirmation
         if (request.getConfirmPassword() == null || !request.getPassword().equals(request.getConfirmPassword())) {
-            return ResponseEntity.badRequest().body("Passwords do not match");
+            logger.warn("Password mismatch for signup: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Passwords do not match"));
         }
 
         // Check if email/phone already exists
         if (userRepository.findByEmailOrPhone(request.getEmailOrPhone()).isPresent()) {
-            return ResponseEntity.badRequest().body("Email/Phone already registered");
+            logger.warn("Email/Phone already registered: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Email/Phone already registered"));
         }
 
         // Check if username already exists
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            return ResponseEntity.badRequest().body("Username already taken");
+            logger.warn("Username already taken: {}", request.getUsername());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Username already taken"));
         }
 
         // Create new user
@@ -56,13 +65,14 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setPassword(request.getPassword()); // In production, this should be hashed
         userRepository.save(user);
+        logger.info("User created: {}", user.getUsername());
 
         // Send welcome email
         try {
-            System.out.println("Attempting to send welcome email to: " + user.getEmailOrPhone());
+            logger.info("Attempting to send welcome email to: {}", user.getEmailOrPhone());
             
             SimpleMailMessage welcomeMessage = new SimpleMailMessage();
-            welcomeMessage.setTo(user.getEmailOrPhone());
+            welcomeMessage.setTo(user.getEmail());
             welcomeMessage.setSubject("Welcome to Swift - Registration Successful!");
             welcomeMessage.setText(String.format(
                 "Dear %s,\n\n" +
@@ -80,13 +90,13 @@ public class AuthService {
                 user.getCreatedAt().toString()
             ));
             
-            System.out.println("Sending welcome email...");
+            logger.info("Sending welcome email...");
             mailSender.send(welcomeMessage);
-            System.out.println("Welcome email sent successfully!");
+            logger.info("Welcome email sent successfully!");
             
         } catch (Exception e) {
             // Log the error but don't fail the signup
-            System.err.println("Failed to send welcome email: " + e.getMessage());
+            logger.error("Failed to send welcome email: {}", e.getMessage());
             e.printStackTrace();
         }
 
@@ -97,27 +107,30 @@ public class AuthService {
             user.getCreatedAt().toString()
         );
 
-        return ResponseEntity.ok(successMessage);
+        return ResponseEntity.ok(Map.of("success", true, "message", successMessage));
     }
 
     public ResponseEntity<?> login(LoginRequest request) {
+        logger.info("Processing login for: {}", request.getEmailOrPhone());
         // Find user by email/phone
         Optional<User> userOpt = userRepository.findByEmailOrPhone(request.getEmailOrPhone());
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("User not found");
+            logger.warn("User not found: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "User not found"));
         }
 
         User user = userOpt.get();
         
         // Check password
         if (!user.getPassword().equals(request.getPassword())) { // In production, use proper password hashing
-            return ResponseEntity.badRequest().body("Invalid credentials");
+            logger.warn("Invalid credentials for user: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid credentials"));
         }
 
         // Send login notification email
         try {
             SimpleMailMessage loginMessage = new SimpleMailMessage();
-            loginMessage.setTo(user.getEmailOrPhone());
+            loginMessage.setTo(user.getEmail());
             loginMessage.setSubject("Swift Account Login Notification");
             loginMessage.setText(String.format(
                 "Dear %s,\n\n" +
@@ -135,8 +148,9 @@ public class AuthService {
                 java.time.LocalDateTime.now().toString()
             ));
             mailSender.send(loginMessage);
+            logger.info("Login notification email sent to: {}", user.getEmail());
         } catch (Exception e) {
-            System.err.println("Failed to send login notification email: " + e.getMessage());
+            logger.error("Failed to send login notification email: {}", e.getMessage());
         }
 
         // Generate and send OTP
@@ -148,50 +162,60 @@ public class AuthService {
         entry.setOtp(otp);
         entry.setExpiresAt(expiresAt);
         otpRepository.save(entry);
+        logger.info("OTP generated and saved for user: {}", user.getUsername());
 
         // Send OTP via email (assuming emailOrPhone is an email for now)
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmailOrPhone());
+        message.setTo(user.getEmail());
         message.setSubject("Your Login OTP Code");
         message.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
         mailSender.send(message);
+        logger.info("OTP sent to email: {}", user.getEmail());
 
-        return ResponseEntity.ok("OTP sent successfully to your email");
+        return ResponseEntity.ok(Map.of("success", true, "message", "OTP sent successfully to your email"));
     }
 
     public ResponseEntity<?> verifyOtp(OtpRequest request) {
         Optional<OtpEntry> entryOpt = otpRepository.findTopByEmailOrderByExpiresAtDesc(request.getEmail());
         if (entryOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("No OTP found");
+            logger.warn("No OTP found for email: {}", request.getEmail());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "No OTP found"));
         }
 
         OtpEntry entry = entryOpt.get();
         if (!entry.getOtp().equals(request.getOtp())) {
-            return ResponseEntity.badRequest().body("Invalid OTP");
+            logger.warn("Invalid OTP for email: {}", request.getEmail());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid OTP"));
         }
         if (entry.getExpiresAt().isBefore(LocalDateTime.now())) {
-            return ResponseEntity.badRequest().body("OTP expired");
+            logger.warn("OTP expired for email: {}", request.getEmail());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "OTP expired"));
         }
 
         // Find user by email/phone
         Optional<User> userOpt = userRepository.findByEmailOrPhone(request.getEmail());
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("User not found");
+            logger.warn("User not found for OTP verification: {}", request.getEmail());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "User not found"));
         }
 
         User user = userOpt.get();
-        return ResponseEntity.ok("Login successful! Welcome " + user.getUsername());
+        logger.info("OTP verified successfully for user: {}", user.getUsername());
+        return ResponseEntity.ok(Map.of("success", true, "message", "Login successful! Welcome " + user.getUsername()));
     }
 
     public ResponseEntity<?> sendOtp(String phoneNumber, String purpose) {
         try {
+            logger.info("Attempting to send OTP for phone number: {}", phoneNumber);
             // Find user by phone number
             Optional<User> userOpt = userRepository.findByEmailOrPhone(phoneNumber);
             if (userOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body("User not found");
+                logger.warn("User not found for OTP: {}", phoneNumber);
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "User not found"));
             }
 
             User user = userOpt.get();
+            logger.info("User found for OTP: {}", user.getUsername());
 
             // Generate and send OTP
             String otp = String.format("%06d", new Random().nextInt(999999));
@@ -202,29 +226,35 @@ public class AuthService {
             entry.setOtp(otp);
             entry.setExpiresAt(expiresAt);
             otpRepository.save(entry);
+            logger.info("OTP generated and saved for user: {}", user.getUsername());
 
             // Send OTP via email
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(user.getEmailOrPhone());
+            message.setTo(user.getEmail());
             message.setSubject("Your OTP Code");
             message.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
             mailSender.send(message);
+            logger.info("OTP sent to email: {}", user.getEmail());
 
-            return ResponseEntity.ok("OTP sent successfully to your email");
+            return ResponseEntity.ok(Map.of("success", true, "message", "OTP sent successfully to your email"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Failed to send OTP: " + e.getMessage());
+            logger.error("Failed to send OTP: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Failed to send OTP: " + e.getMessage()));
         }
     }
 
     public ResponseEntity<?> resendOtp(String phoneNumber, String purpose) {
         try {
+            logger.info("Attempting to resend OTP for phone number: {}", phoneNumber);
             // Find user by phone number
             Optional<User> userOpt = userRepository.findByEmailOrPhone(phoneNumber);
             if (userOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body("User not found");
+                logger.warn("User not found for resend OTP: {}", phoneNumber);
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "User not found"));
             }
 
             User user = userOpt.get();
+            logger.info("User found for resend OTP: {}", user.getUsername());
 
             // Generate and send new OTP
             String otp = String.format("%06d", new Random().nextInt(999999));
@@ -235,17 +265,20 @@ public class AuthService {
             entry.setOtp(otp);
             entry.setExpiresAt(expiresAt);
             otpRepository.save(entry);
+            logger.info("New OTP generated and saved for user: {}", user.getUsername());
 
             // Send OTP via email
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(user.getEmailOrPhone());
+            message.setTo(user.getEmail());
             message.setSubject("Your New OTP Code");
             message.setText("Your new OTP is: " + otp + "\nIt expires in 10 minutes.");
             mailSender.send(message);
+            logger.info("New OTP sent to email: {}", user.getEmail());
 
-            return ResponseEntity.ok("New OTP sent successfully to your email");
+            return ResponseEntity.ok(Map.of("success", true, "message", "New OTP sent successfully to your email"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Failed to resend OTP: " + e.getMessage());
+            logger.error("Failed to resend OTP: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Failed to resend OTP: " + e.getMessage()));
         }
     }
 }

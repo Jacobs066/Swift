@@ -12,3 +12,5 @@ export const ProfileProvider = ({ children }) => {
     </ProfileContext.Provider>
   );
 };
+
+export default ProfileProvider;

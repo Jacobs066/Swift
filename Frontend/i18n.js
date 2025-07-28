@@ -1,6 +1,11 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+// Add Intl.PluralRules polyfill for environments that don't support it
+if (!Intl.PluralRules) {
+  require('intl-pluralrules');
+}
+
 // English translations
 const en = {
   translation: {
