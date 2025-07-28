@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from './context/ThemeContext'; // 👈 your dark mode context
@@ -9,19 +9,19 @@ const slides = [
     id: 1,
     title: 'Send money worry-free',
     subtitle: 'Trusted by over 5 million people worldwide.',
-    image: require('../assets/phone.png'),
+    icon: 'phone-portrait-outline',
   },
   {
     id: 2,
     title: 'Safe and secure',
     subtitle: 'Your information is always confidential and your money is protected.',
-    image: require('../assets/handshake.png'),
+    icon: 'shield-checkmark-outline',
   },
   {
     id: 3,
     title: 'Guaranteed delivery',
     subtitle: 'Your money arrives at the time promised, or fees are refunded.',
-    image: require('../assets/recieved.png'),
+    icon: 'checkmark-circle-outline',
   },
 ];
 
@@ -68,7 +68,7 @@ const OnboardingScreen = () => {
       )}
 
       {/* Slide Image */}
-      <Image source={slides[currentSlide].image} style={styles.image} resizeMode="contain" />
+      <Ionicons name={slides[currentSlide].icon} size={220} color={colors.text} />
 
       {/* Slide Text */}
       <Text style={[styles.title, { color: colors.text }]}>{slides[currentSlide].title}</Text>
