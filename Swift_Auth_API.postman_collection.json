@@ -16,7 +16,17 @@
           "host": ["{{baseUrl}}"],
           "path": ["actuator", "health"]
         }
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "Signup",
@@ -32,7 +42,17 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "auth", "signup"]
         }
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "Login",
@@ -48,7 +68,17 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "auth", "login"]
         }
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "Verify OTP",
@@ -64,7 +94,17 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "auth", "verify-otp"]
         }
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "Deposit (Initialize)",
@@ -80,7 +120,17 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "wallets", "deposit"]
         }
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "Deposit (Verify)",
@@ -96,7 +146,17 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "wallets", "deposit", "verify"]
         }
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "Withdraw",
@@ -112,7 +172,17 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "wallets", "withdraw"]
         }
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "Interwallet Transfer (Internal)",
@@ -131,7 +201,17 @@
           "path": ["api", "wallets", "interwallet"]
         },
         "description": "Move money between your own wallets (GHS, USD, GBP, EUR) within the app. No Paystack involved."
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     },
     {
       "name": "External Transfer (Paystack)",
@@ -150,10 +230,64 @@
           "path": ["api", "wallets", "transfer"]
         },
         "description": "Send money to another person via Paystack (e.g., mobile money, bank). Uses Paystack's transfer API."
-      }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
+    },
+    {
+      "name": "Admin: Get All Users",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "admin", "users"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
+    },
+    {
+      "name": "Admin: Delete All Users",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/user/all",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "user", "all"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('Response body is not empty', function () { pm.expect(pm.response.text()).to.not.be.empty; });"
+          ],
+          "type": "text/javascript"
+        }
+      }]
     }
   ],
   "variable": [
-    {"key": "baseUrl", "value": "http://localhost:8082", "type": "string"}
+    {"key": "baseUrl", "value": "http://192.168.137.1:8082", "type": "string"}
   ]
 } 

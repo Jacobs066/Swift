@@ -83,4 +83,10 @@ public class UserController {
             return ResponseEntity.badRequest().body("Failed to fetch activity logs: " + e.getMessage());
         }
     }
+
+    @DeleteMapping("/all")
+    public ResponseEntity<?> deleteAllUsers() {
+        userRepository.deleteAll();
+        return ResponseEntity.ok("All users deleted successfully");
+    }
 } 
