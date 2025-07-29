@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { ProfileContext } from '../context/ProfileContext';
 import { useTheme } from '../context/ThemeContext';
 import { getUserProfile } from '../api';
+import BottomNavBar from '../components/BottomNavBar';
 
 const SettingsScreen = () => {
   const router = useRouter();
@@ -34,6 +35,7 @@ const SettingsScreen = () => {
       const profile = await getUserProfile();
       setUserProfile(profile);
     } catch (error) {
+      console.log('Failed to load user profile:', error);
       // Silently handle error, fallback to default values
     }
   };
@@ -46,6 +48,33 @@ const SettingsScreen = () => {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const getDisplayName = () => {
+    if (userProfile?.fullName) return userProfile.fullName;
+    if (userProfile?.firstName && userProfile?.lastName) {
+      return `${userProfile.firstName} ${userProfile.lastName}`;
+    }
+    if (userProfile?.firstName) return userProfile.firstName;
+    if (userProfile?.username) return userProfile.username;
+    return 'User';
+  };
+
+  const getDisplayEmail = () => {
+    if (userProfile?.email) return userProfile.email;
+    if (userProfile?.emailOrPhone && userProfile.emailOrPhone.includes('@')) {
+      return userProfile.emailOrPhone;
+    }
+    return 'No email';
+  };
+
+  const getDisplayPhone = () => {
+    if (userProfile?.phone) return userProfile.phone;
+    if (userProfile?.phoneNumber) return userProfile.phoneNumber;
+    if (userProfile?.emailOrPhone && !userProfile.emailOrPhone.includes('@')) {
+      return userProfile.emailOrPhone;
+    }
+    return 'No phone';
   };
 
   const requestPermissions = async () => {
@@ -178,19 +207,19 @@ const SettingsScreen = () => {
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: '#800080' }]}>
                 <Text style={styles.avatarText}>
-                  {getInitials(userProfile?.firstName || userProfile?.fullName || userProfile?.username)}
+                  {getInitials(getDisplayName())}
                 </Text>
               </View>
             )}
             <View>
               <Text style={[styles.name, themeStyles.name]}>
-                {userProfile?.firstName || userProfile?.fullName || userProfile?.username || 'User'}
+                {getDisplayName()}
               </Text>
               <Text style={themeStyles.email}>
-                {userProfile?.email || userProfile?.emailOrPhone || 'No email'}
+                {getDisplayEmail()}
               </Text>
               <Text style={themeStyles.phone}>
-                {userProfile?.phoneNumber || userProfile?.phone || 'No phone'}
+                {getDisplayPhone()}
               </Text>
             </View>
           </View>
@@ -239,6 +268,7 @@ const SettingsScreen = () => {
           <Text style={[styles.bottomLinkText, isDarkMode && styles.bottomLinkTextDark]}>Customer Service</Text>
         </TouchableOpacity>
       </ScrollView>
+      <BottomNavBar />
     </View>
   );
 };

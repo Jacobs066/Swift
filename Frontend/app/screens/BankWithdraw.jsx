@@ -14,39 +14,30 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { initiateWithdraw } from '../api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
 
 const BankWithdrawScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
   const { t } = useTranslation();
+  const { isDarkMode } = useTheme();
 
   const [fullName, setFullName] = useState('');
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
   const [processing, setProcessing] = useState(false);
 
   const handleWithdraw = async () => {
-    // Client-side validation
-    if (!fullName.trim()) {
-      Alert.alert(t('error'), t('fullNameRequired') || 'Full name is required');
+    if (!fullName || !bankName || !accountNumber || !accountName || !amount || !reference) {
+      Alert.alert(t('error'), t('allFieldsRequired') || 'All fields are required');
       return;
     }
-    if (!bankName.trim()) {
-      Alert.alert(t('error'), t('bankNameRequired') || 'Bank name is required');
-      return;
-    }
-    if (!accountNumber.trim()) {
-      Alert.alert(t('error'), t('accountNumberRequired') || 'Account number is required');
-      return;
-    }
-    if (!amount.trim() || parseFloat(amount) <= 0) {
+
+    if (parseFloat(amount) <= 0) {
       Alert.alert(t('error'), t('enterValidAmount') || 'Please enter a valid amount');
-      return;
-    }
-    if (!reference.trim()) {
-      Alert.alert(t('error'), t('referenceRequired') || 'Reference is required');
       return;
     }
 
@@ -54,153 +45,223 @@ const BankWithdrawScreen = () => {
       setProcessing(true);
       
       const withdrawData = {
-        method: 'bank_transfer',
+        method: 'bank',
         amount: parseFloat(amount),
         recipientDetails: {
           fullName: fullName.trim(),
           bankName: bankName.trim(),
           accountNumber: accountNumber.trim(),
+          accountName: accountName.trim(),
           reference: reference.trim()
         }
       };
 
-      await initiateWithdraw('bank_transfer', parseFloat(amount), withdrawData.recipientDetails);
+      console.log('Initiating bank withdrawal with:', withdrawData);
+      const result = await initiateWithdraw('bank', parseFloat(amount), withdrawData.recipientDetails);
       
-      Alert.alert(
-        t('success'), 
-        t('bankWithdrawalInitiatedSuccess') || `₵${amount} withdrawal request sent to ${bankName} (${accountNumber})`,
-        [{ text: t('continue'), onPress: () => router.back() }]
-      );
+      if (result.success) {
+        // Check if this is a mock response
+        if (result.isMock) {
+          Alert.alert(
+            'Bank Withdrawal Initiated (Test Mode)', 
+            `Your bank withdrawal of ₵${amount} has been initiated successfully in test mode. This is a demo transaction.`,
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Navigate back to home screen
+                  router.push('/screens/HomeScreen');
+                }
+              }
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Bank Withdrawal Successful', 
+            `Your bank withdrawal of ₵${amount} has been initiated successfully!`,
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Navigate back to home screen
+                  router.push('/screens/HomeScreen');
+                }
+              }
+            ]
+          );
+        }
+      } else {
+        Alert.alert(t('error'), 'Failed to initiate bank withdrawal. Please try again.');
+      }
     } catch (error) {
-      Alert.alert(t('error'), t('bankWithdrawalFailed') || 'Failed to initiate bank withdrawal: ' + error.toString());
+      console.error('Bank withdrawal error:', error);
+      Alert.alert(t('error'), 'Failed to initiate bank withdrawal: ' + error.toString());
     } finally {
       setProcessing(false);
     }
   };
 
-  const styles = getStyles(isDarkMode);
+  const colors = {
+    background: isDarkMode ? '#121212' : '#fff',
+    text: isDarkMode ? '#fff' : '#000',
+    subtext: isDarkMode ? '#ccc' : '#666',
+    inputBg: isDarkMode ? '#1e1e1e' : '#fff',
+    border: isDarkMode ? '#333' : '#ddd',
+    accent: '#800080',
+    placeholder: isDarkMode ? '#aaa' : '#999',
+  };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={{ paddingBottom: 30 }}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#800080' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>{t('withdrawToBankAccount') || 'Withdraw to Bank Account'}</Text>
+      <Text style={[styles.title, { color: colors.accent }]}>Bank Withdrawal</Text>
+      <Text style={[styles.subtitle, { color: colors.subtext }]}>
+        Enter your bank details to receive the withdrawal.
+      </Text>
 
-      <Text style={styles.label}>{t('fullName') || 'Full Name'}</Text>
+      <Text style={[styles.label, { color: colors.accent }]}>Full Name</Text>
       <TextInput
-        style={styles.input}
-        placeholder={t('fullNamePlaceholder') || "John Doe"}
-        placeholderTextColor={isDarkMode ? '#aaa' : '#999'}
+        style={[styles.input, { 
+          backgroundColor: colors.inputBg, 
+          borderColor: colors.border, 
+          color: colors.text 
+        }]}
+        placeholder="John Doe"
+        placeholderTextColor={colors.placeholder}
         value={fullName}
         onChangeText={setFullName}
-        editable={!processing}
       />
 
-      <Text style={styles.label}>{t('bankName') || 'Bank Name'}</Text>
+      <Text style={[styles.label, { color: colors.accent }]}>Bank Name</Text>
       <TextInput
-        style={styles.input}
-        placeholder={t('bankNamePlaceholder') || "Absa, Stanbic, etc."}
-        placeholderTextColor={isDarkMode ? '#aaa' : '#999'}
+        style={[styles.input, { 
+          backgroundColor: colors.inputBg, 
+          borderColor: colors.border, 
+          color: colors.text 
+        }]}
+        placeholder="e.g., GCB Bank"
+        placeholderTextColor={colors.placeholder}
         value={bankName}
         onChangeText={setBankName}
-        editable={!processing}
       />
 
-      <Text style={styles.label}>{t('accountNumber') || 'Account Number'}</Text>
+      <Text style={[styles.label, { color: colors.accent }]}>Account Number</Text>
       <TextInput
-        style={styles.input}
-        placeholder={t('accountNumberPlaceholder') || "0123456789"}
-        keyboardType="numeric"
-        placeholderTextColor={isDarkMode ? '#aaa' : '#999'}
+        style={[styles.input, { 
+          backgroundColor: colors.inputBg, 
+          borderColor: colors.border, 
+          color: colors.text 
+        }]}
+        placeholder="1234567890"
+        placeholderTextColor={colors.placeholder}
         value={accountNumber}
         onChangeText={setAccountNumber}
-        editable={!processing}
+        keyboardType="numeric"
       />
 
-      <Text style={styles.label}>{t('amount') || 'Amount (GHS)'}</Text>
+      <Text style={[styles.label, { color: colors.accent }]}>Account Name</Text>
       <TextInput
-        style={styles.input}
-        placeholder={t('amountPlaceholder') || "200.00"}
-        keyboardType="numeric"
-        placeholderTextColor={isDarkMode ? '#aaa' : '#999'}
+        style={[styles.input, { 
+          backgroundColor: colors.inputBg, 
+          borderColor: colors.border, 
+          color: colors.text 
+        }]}
+        placeholder="Account holder name"
+        placeholderTextColor={colors.placeholder}
+        value={accountName}
+        onChangeText={setAccountName}
+      />
+
+      <Text style={[styles.label, { color: colors.accent }]}>Amount (GHS)</Text>
+      <TextInput
+        style={[styles.input, { 
+          backgroundColor: colors.inputBg, 
+          borderColor: colors.border, 
+          color: colors.text 
+        }]}
+        placeholder="Enter amount"
+        placeholderTextColor={colors.placeholder}
         value={amount}
         onChangeText={setAmount}
-        editable={!processing}
+        keyboardType="numeric"
       />
 
-      <Text style={styles.label}>{t('reference') || 'Reference'}</Text>
+      <Text style={[styles.label, { color: colors.accent }]}>Reference/Reason</Text>
       <TextInput
-        style={styles.input}
-        placeholder={t('referencePlaceholder') || "Withdrawal for savings"}
-        placeholderTextColor={isDarkMode ? '#aaa' : '#999'}
+        style={[styles.input, { 
+          backgroundColor: colors.inputBg, 
+          borderColor: colors.border, 
+          color: colors.text 
+        }]}
+        placeholder="e.g., Salary withdrawal"
+        placeholderTextColor={colors.placeholder}
         value={reference}
         onChangeText={setReference}
-        editable={!processing}
       />
 
-      <TouchableOpacity 
-        style={[styles.button, processing && styles.buttonDisabled]} 
+      <TouchableOpacity
+        style={[styles.withdrawButton, { backgroundColor: colors.accent }, processing && styles.disabledButton]}
         onPress={handleWithdraw}
         disabled={processing}
       >
         {processing ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>{t('withdraw') || 'Withdraw'}</Text>
+          <Text style={styles.withdrawButtonText}>Withdraw to Bank</Text>
         )}
       </TouchableOpacity>
     </ScrollView>
   );
 };
 
-export default BankWithdrawScreen;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  backButton: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    marginBottom: 30,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  withdrawButton: {
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  withdrawButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+});
 
-const getStyles = (isDark) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: isDark ? '#121212' : '#fff',
-      padding: 20,
-    },
-    backButton: {
-      marginBottom: 15,
-    },
-    title: {
-      fontSize: 22,
-      fontWeight: 'bold',
-      color: '#800080',
-      marginBottom: 25,
-    },
-    label: {
-      fontSize: 14,
-      color: isDark ? '#ccc' : '#800080',
-      marginBottom: 5,
-    },
-    input: {
-      borderWidth: 1.5,
-      borderColor: '#800080',
-      borderRadius: 10,
-      padding: 12,
-      fontSize: 16,
-      color: isDark ? '#fff' : '#000',
-      backgroundColor: isDark ? '#1e1e1e' : '#fdfdfd',
-      marginBottom: 20,
-    },
-    button: {
-      backgroundColor: '#800080',
-      padding: 15,
-      borderRadius: 10,
-      alignItems: 'center',
-      marginTop: 10,
-    },
-    buttonDisabled: {
-      backgroundColor: '#666',
-    },
-    buttonText: {
-      color: '#fff',
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-  });
+export default BankWithdrawScreen;

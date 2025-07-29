@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { getWithdrawMethods, initiateWithdraw } from '../api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const WithdrawScreen = () => {
   const router = useRouter();
@@ -15,15 +16,32 @@ const WithdrawScreen = () => {
 
   useEffect(() => {
     loadWithdrawMethods();
+    // Clear any stored payment data that might cause verification errors
+    clearStoredPaymentData();
   }, []);
+
+  const clearStoredPaymentData = async () => {
+    try {
+      // Clear any stored payment data that might cause verification errors
+      await AsyncStorage.removeItem('pendingPayment');
+      await AsyncStorage.removeItem('pendingWithdrawal');
+      console.log('Cleared stored payment data');
+    } catch (error) {
+      console.error('Error clearing stored payment data:', error);
+    }
+  };
 
   const loadWithdrawMethods = async () => {
     try {
       setLoading(true);
+      console.log('Loading withdraw methods...');
       const methods = await getWithdrawMethods();
+      console.log('Withdraw methods loaded:', methods);
       setWithdrawMethods(methods);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load withdraw methods: ' + error.toString());
+      console.error('Error loading withdraw methods:', error);
+      // Don't show alert for API errors, just use fallback methods
+      setWithdrawMethods([]); // This will trigger the fallback options
     } finally {
       setLoading(false);
     }
@@ -33,7 +51,7 @@ const WithdrawScreen = () => {
     try {
       setProcessing(true);
       
-      if (method.id === 'mobile' || method.name?.toLowerCase().includes('mobile')) {
+      if (method.id === 'mobile_money' || method.name?.toLowerCase().includes('mobile')) {
         // Navigate to mobile money provider selection
         router.push('/screens/MobileMoneyOptionsScreen');
         return;
@@ -45,12 +63,10 @@ const WithdrawScreen = () => {
         return;
       }
       
-      const result = await initiateWithdraw(method.id, 50, {}); // Default amount, you can add amount input
-      Alert.alert('Success', 'Withdrawal initiated successfully!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      // For other methods, show error
+      Alert.alert('Error', 'Unsupported withdrawal method');
     } catch (error) {
-      Alert.alert('Error', 'Failed to initiate withdrawal: ' + error.toString());
+      Alert.alert('Error', 'Failed to process withdrawal: ' + error.toString());
     } finally {
       setProcessing(false);
     }
@@ -93,7 +109,7 @@ const WithdrawScreen = () => {
         <>
           <TouchableOpacity
             style={styles.optionButton}
-            onPress={() => handleWithdraw({ id: 'mobile', name: 'Withdraw to Mobile Wallet' })}
+            onPress={() => handleWithdraw({ id: 'mobile_money', name: 'Withdraw to Mobile Wallet' })}
             disabled={processing}
           >
             <Ionicons name="wallet-outline" size={22} color="#800080" style={{ marginRight: 10 }} />

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, Keyboard
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { getTransferRates, initiateTransfer } from '../api';
+import { getTransferRates, performInterwalletTransfer } from '../api';
 
 const toWallets = ['GHS', 'EUR', 'GBP'];
 
@@ -60,12 +60,12 @@ const ConvertFromUSDScreen = () => {
 
     try {
       setProcessing(true);
-      const result = await initiateTransfer('USD', toWallet, parseFloat(amount));
-      Alert.alert('Success', 'Transfer initiated successfully!', [
-        { text: 'OK', onPress: () => router.back() }
+      const result = await performInterwalletTransfer('USD', toWallet, parseFloat(amount), `Transfer from USD to ${toWallet}`);
+      Alert.alert('Success', 'Transfer completed successfully!', [
+        { text: 'OK', onPress: () => router.push('/screens/HomeScreen') }
       ]);
     } catch (error) {
-      Alert.alert('Error', 'Failed to initiate transfer: ' + error.toString());
+      Alert.alert('Error', 'Failed to complete transfer: ' + error.toString());
     } finally {
       setProcessing(false);
     }

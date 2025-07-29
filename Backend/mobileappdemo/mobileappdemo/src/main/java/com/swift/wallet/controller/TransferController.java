@@ -19,6 +19,31 @@ public class TransferController {
     @GetMapping("/rates")
     public ResponseEntity<?> getTransferRates() {
         try {
+            // Test exchange rate service
+            System.out.println("Testing exchange rates...");
+            
+            // Test GHS to USD
+            BigDecimal ghsToUsd = exchangeRateService.getExchangeRate(
+                com.swift.wallet.enums.CurrencyType.GHS, 
+                com.swift.wallet.enums.CurrencyType.USD
+            );
+            
+            // Test USD to GHS
+            BigDecimal usdToGhs = exchangeRateService.getExchangeRate(
+                com.swift.wallet.enums.CurrencyType.USD, 
+                com.swift.wallet.enums.CurrencyType.GHS
+            );
+            
+            // Test EUR to GBP
+            BigDecimal eurToGbp = exchangeRateService.getExchangeRate(
+                com.swift.wallet.enums.CurrencyType.EUR, 
+                com.swift.wallet.enums.CurrencyType.GBP
+            );
+            
+            System.out.println("Exchange rates tested - GHS to USD: " + ghsToUsd + 
+                             ", USD to GHS: " + usdToGhs + 
+                             ", EUR to GBP: " + eurToGbp);
+            
             // Return current exchange rates
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -26,42 +51,55 @@ public class TransferController {
                 Map.of(
                     "fromCurrency", "GHS",
                     "toCurrency", "USD",
-                    "rate", 0.12,
+                    "rate", ghsToUsd,
                     "lastUpdated", "2024-01-15T10:30:00"
                 ),
                 Map.of(
                     "fromCurrency", "GHS",
                     "toCurrency", "EUR",
-                    "rate", 0.11,
+                    "rate", exchangeRateService.getExchangeRate(
+                        com.swift.wallet.enums.CurrencyType.GHS, 
+                        com.swift.wallet.enums.CurrencyType.EUR
+                    ),
                     "lastUpdated", "2024-01-15T10:30:00"
                 ),
                 Map.of(
                     "fromCurrency", "GHS",
                     "toCurrency", "GBP",
-                    "rate", 0.095,
+                    "rate", exchangeRateService.getExchangeRate(
+                        com.swift.wallet.enums.CurrencyType.GHS, 
+                        com.swift.wallet.enums.CurrencyType.GBP
+                    ),
                     "lastUpdated", "2024-01-15T10:30:00"
                 ),
                 Map.of(
                     "fromCurrency", "USD",
                     "toCurrency", "GHS",
-                    "rate", 8.33,
+                    "rate", usdToGhs,
                     "lastUpdated", "2024-01-15T10:30:00"
                 ),
                 Map.of(
                     "fromCurrency", "EUR",
                     "toCurrency", "GHS",
-                    "rate", 9.09,
+                    "rate", exchangeRateService.getExchangeRate(
+                        com.swift.wallet.enums.CurrencyType.EUR, 
+                        com.swift.wallet.enums.CurrencyType.GHS
+                    ),
                     "lastUpdated", "2024-01-15T10:30:00"
                 ),
                 Map.of(
                     "fromCurrency", "GBP",
                     "toCurrency", "GHS",
-                    "rate", 10.53,
+                    "rate", exchangeRateService.getExchangeRate(
+                        com.swift.wallet.enums.CurrencyType.GBP, 
+                        com.swift.wallet.enums.CurrencyType.GHS
+                    ),
                     "lastUpdated", "2024-01-15T10:30:00"
                 )
             });
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            System.err.println("Error testing exchange rates: " + e.getMessage());
             return ResponseEntity.badRequest().body("Failed to fetch transfer rates: " + e.getMessage());
         }
     }

@@ -17,42 +17,6 @@ import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } from '../api';
 
-// Fallback notifications if API fails
-const fallbackNotifications = [
-  {
-    id: '1',
-    title: 'Deposit Successful',
-    message: 'Your GHS50.00 deposit has been added to your wallet.',
-    time: '2 mins ago',
-    type: 'deposit',
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'Reward Unlocked',
-    message: 'You\'ve earned a reward for your recent activity!',
-    time: '1 hour ago',
-    type: 'reward',
-    read: false,
-  },
-  {
-    id: '3',
-    title: 'Interwallet Transfer',
-    message: 'You transferred GHS100.00 to Evans.',
-    time: 'Yesterday',
-    type: 'transfer',
-    read: true,
-  },
-  {
-    id: '4',
-    title: 'Withdrawal Complete',
-    message: 'Your withdrawal of GHS20.00 has been processed.',
-    time: '2 days ago',
-    type: 'withdrawal',
-    read: true,
-  },
-];
-
 const NotificationScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
@@ -71,10 +35,20 @@ const NotificationScreen = () => {
     try {
       setLoading(true);
       const data = await getNotifications();
-      setNotifications(data);
+      
+      // Handle backend response format
+      if (data && data.success && data.notifications) {
+        setNotifications(data.notifications);
+      } else if (Array.isArray(data)) {
+        setNotifications(data);
+      } else {
+        // If no notifications or invalid response, show empty state
+        setNotifications([]);
+      }
     } catch (error) {
-      // Fallback to static data if API fails
-      setNotifications(fallbackNotifications);
+      console.log('Failed to load notifications:', error);
+      // Show empty state instead of fallback data
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -247,10 +221,10 @@ const NotificationScreen = () => {
     <View style={styles.emptyContainer}>
       <Ionicons name="notifications-off-outline" size={64} color={isDarkMode ? '#666' : '#ccc'} />
       <Text style={[styles.emptyText, { color: isDarkMode ? '#ccc' : '#666' }]}>
-        {t('noNotifications') || 'No notifications yet'}
+        No notifications yet
       </Text>
       <Text style={[styles.emptySubtext, { color: isDarkMode ? '#999' : '#aaa' }]}>
-        {t('noNotificationsSubtext') || 'We\'ll notify you when something important happens'}
+        We'll notify you when something important happens
       </Text>
     </View>
   );

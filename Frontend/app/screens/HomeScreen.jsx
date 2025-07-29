@@ -10,10 +10,10 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getUserProfile, getAccountBalance, getRecentTransactions, getActivityLogs, getNotifications } from '../api';
+import { getUserProfile, getAccountBalance, getRecentTransactions, getActivityLogs, getNotifications, createWalletsForUser } from '../api';
 
 const HomeScreen = () => {
   const router = useRouter();
@@ -41,6 +41,13 @@ const HomeScreen = () => {
     loadHomeData();
   }, []);
 
+  // Refresh data when screen comes into focus (e.g., after deposit)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadHomeData();
+    }, [])
+  );
+
   useEffect(() => {
     if (hasUnread) {
       Animated.loop(
@@ -55,24 +62,34 @@ const HomeScreen = () => {
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      const [profile, balance, transactions, logs, notifications] = await Promise.all([
-        getUserProfile(),
+      
+      // Ensure demo user has wallets
+      await createWalletsForUser(1);
+      
+      const [profile, balances, transactions, logs, notifications] = await Promise.all([
+        getUserProfile().catch(() => ({ firstName: 'User' })),
         getAccountBalance(),
         getRecentTransactions(),
         getActivityLogs(),
         getNotifications()
       ]);
-
       setUserProfile(profile);
-      setAccountBalance(balance);
+      
+      // Find the primary wallet (GHS) from the balances array
+      const primaryWallet = balances?.find(wallet => wallet.isPrimary || wallet.currency === 'GHS') || balances?.[0];
+      setAccountBalance(primaryWallet);
+      
+      console.log('Recent transactions loaded:', transactions);
+      console.log('Activity logs loaded:', logs);
       setRecentTx(transactions);
       setRecentLogs(logs);
-      
       const unreadCount = notifications.filter(n => !n.read).length;
       setHasUnread(unreadCount > 0);
       setBadge(unreadCount);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load home data: ' + error.toString());
+      console.log('Error loading home data:', error);
+      // Only alert for critical errors, not profile fetch
+      // Alert.alert('Error', 'Failed to load home data: ' + error.toString());
     } finally {
       setLoading(false);
     }
@@ -95,11 +112,11 @@ const HomeScreen = () => {
           <View style={styles.greetingLeft}>
             <View style={[styles.avatar, { backgroundColor: '#800080' }]}>
               <Text style={styles.avatarText}>
-                {userProfile?.firstName?.charAt(0) || userProfile?.fullName?.charAt(0) || 'U'}
+                {userProfile?.firstName?.split(' ')[0]?.charAt(0) || userProfile?.fullName?.split(' ')[0]?.charAt(0) || 'U'}
               </Text>
             </View>
             <Text style={[styles.welcomeText, { color: textColor }]}>
-              {t('welcomeBack')}, {userProfile?.firstName || userProfile?.fullName || 'User'}! 👋
+              {t('welcomeBack')}, {userProfile?.firstName?.split(' ')[0] || userProfile?.fullName?.split(' ')[0] || 'User'}! 👋
             </Text>
           </View>
 
@@ -162,11 +179,108 @@ const ActionBtn = ({ icon, label, onPress }) => (
 const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPress = () => {} }) => {
   const { t } = useTranslation();
   
+  const getTransactionIcon = (type, isIncoming, description) => {
+    // Check for specific transaction types based on description first
+    if (description) {
+      const desc = description.toLowerCase();
+      if (desc.includes('cash back') || desc.includes('cashback')) {
+        return 'card-outline';
+      }
+      if (desc.includes('reward') || desc.includes('bonus')) {
+        return 'gift-outline';
+      }
+      if (desc.includes('interwallet') || desc.includes('currency exchange')) {
+        return 'swap-horizontal-outline';
+      }
+    }
+
+    // Then check by transaction type
+    switch (type) {
+      case 'DEPOSIT':
+        return 'cash-outline';
+      case 'WITHDRAWAL':
+        return 'arrow-down-outline';
+      case 'TRANSFER':
+        return 'swap-horizontal-outline';
+      case 'CURRENCY_EXCHANGE':
+        return 'swap-horizontal-outline';
+      case 'PAYMENT':
+        return 'card-outline';
+      default:
+        return isIncoming ? 'arrow-up-outline' : 'arrow-down-outline';
+    }
+  };
+
+  const formatAmount = (amount, currencySymbol, isIncoming) => {
+    const formattedAmount = parseFloat(amount).toFixed(2);
+    const sign = isIncoming ? '+' : '-';
+    return `${sign}${currencySymbol}${formattedAmount}`;
+  };
+
+  const getDisplayLabel = (transaction) => {
+    if (transaction.displayType) {
+      return transaction.displayType;
+    }
+    
+    // Fallback to description or type
+    if (transaction.description) {
+      return transaction.description.length > 30 
+        ? transaction.description.substring(0, 30) + '...' 
+        : transaction.description;
+    }
+    
+    return transaction.transactionType || 'Transaction';
+  };
+
+  const getTimeDisplay = (transaction) => {
+    if (transaction.formattedTime) {
+      return transaction.formattedTime;
+    }
+    
+    // Fallback for old data format
+    if (transaction.time) {
+      return transaction.time;
+    }
+    
+    return 'Now';
+  };
+  
   return (
   <View style={[styles.activityCard, { backgroundColor: cardColor }]}>
     <Text style={styles.activityTitle}>{title}</Text>
       {data && data.length > 0 ? (
-        data.map((it) => (
+        data.map((it) => {
+          // Handle both transaction data and old activity data format
+          const isTransaction = it.transactionType || it.displayType;
+          
+          if (isTransaction) {
+            // Handle transaction data from backend
+            const icon = getTransactionIcon(it.transactionType, it.isIncoming, it.description);
+            const label = getDisplayLabel(it);
+            const time = getTimeDisplay(it);
+            const amount = it.amount;
+            const currencySymbol = it.currencySymbol || '₵';
+            const isIncoming = it.isIncoming;
+            
+            return (
+              <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
+                <View style={styles.activityIcon}>
+                  <Ionicons name={icon} size={20} color="#800080" />
+                </View>
+                <View style={{ flex: 1, marginHorizontal: 10 }}>
+                  <Text style={styles.activityLabel}>{label}</Text>
+                  <Text style={styles.activityTime}>{time}</Text>
+                </View>
+                {withAmounts && (
+                  <Text style={[styles.amount, { color: isIncoming ? '#009900' : '#cc0000' }]}>
+                    {formatAmount(amount, currencySymbol, isIncoming)}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          } else {
+            // Handle old activity data format
+            return (
       <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
         <View style={styles.activityIcon}>
           <Ionicons name={it.icon} size={20} color="#800080" />
@@ -181,7 +295,9 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
           </Text>
         )}
       </TouchableOpacity>
-        ))
+            );
+          }
+        })
       ) : (
         <View style={styles.emptyState}>
           <Ionicons name="document-outline" size={24} color="#999" />

@@ -1,11 +1,11 @@
 // screens/DepositScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, TextInput, ScrollView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getDepositMethods, initiateDeposit } from '../api';
+import { getDepositMethods, initiateDeposit, verifyDeposit } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DepositScreen = () => {
@@ -31,6 +31,9 @@ const DepositScreen = () => {
   useEffect(() => {
     loadDepositMethods();
     loadUserEmail();
+    
+    // Note: Removed automatic payment verification to prevent false errors
+    // Payment verification should only happen after actual payment completion
   }, []);
 
   const loadUserEmail = async () => {
@@ -75,20 +78,35 @@ const DepositScreen = () => {
         reference: `DEP_${Date.now()}_${method.id}`
       };
       
+      console.log('Initiating deposit with:', { method, depositData });
       const result = await initiateDeposit(method.id, depositData.amount, depositData);
       
-      Alert.alert(
-        t('success'), 
-        t('depositInitiatedSuccess') || 'Deposit initiated successfully!', 
-        [
-          { 
-            text: t('continue'), 
-            onPress: () => router.back() 
-          }
-        ]
-      );
+      if (result.success) {
+        // Wallet is immediately credited, show success and automatically navigate
+        Alert.alert(
+          'Deposit Successful',
+          `Your deposit of ₵${depositData.amount} has been processed and your GHS wallet has been updated!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Navigate back to home screen which will refresh data
+                router.push('/screens/HomeScreen');
+              }
+            }
+          ]
+        );
+        
+        // Automatically navigate to HomeScreen after a short delay
+        setTimeout(() => {
+          router.push('/screens/HomeScreen');
+        }, 2000); // 2 second delay to show the success message
+      } else {
+        Alert.alert(t('error'), 'Failed to initiate deposit. Please try again.');
+      }
     } catch (error) {
-      Alert.alert(t('error'), t('failedToInitiateDeposit') || 'Failed to initiate deposit: ' + error.toString());
+      console.error('Deposit error:', error);
+      Alert.alert(t('error'), 'Failed to initiate deposit: ' + error.toString());
     } finally {
       setProcessing(false);
     }

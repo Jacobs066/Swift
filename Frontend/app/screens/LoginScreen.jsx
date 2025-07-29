@@ -78,6 +78,18 @@ const LoginScreen = () => {
         return;
       }
 
+      // Check if biometric is set up for this user
+      try {
+        const biometricStatus = await checkBiometricStatus(storedEmail);
+        if (!biometricStatus.success || !biometricStatus.hasBiometric) {
+          Alert.alert('Biometric Not Set Up', 'Biometric authentication is not set up for this account. Please login with email and password first to set it up.');
+          return;
+        }
+      } catch (statusError) {
+        console.log('Failed to check biometric status:', statusError);
+        // Continue anyway, backend will handle the error
+      }
+
       // Authenticate with device biometrics
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: 'Login with biometrics',
@@ -132,22 +144,21 @@ const LoginScreen = () => {
           ]
         );
       } else {
-        Alert.alert('Login Failed', response.message || 'Biometric login failed. Please try again.');
+        // Handle specific error cases
+        if (response.message.includes('User not found')) {
+          Alert.alert('User Not Found', 'No account found with the stored email. Please login with email and password first.');
+        } else if (response.message.includes('Biometric data not found')) {
+          Alert.alert('Biometric Not Set Up', 'Biometric authentication is not set up for this device. Please login with email and password first to set it up.');
+        } else if (response.message.includes('Biometric verification failed')) {
+          Alert.alert('Verification Failed', 'Biometric verification failed. Please try again or use email/password login.');
+        } else {
+          Alert.alert('Login Failed', response.message || 'Biometric login failed. Please try again.');
+        }
       }
 
     } catch (error) {
       console.error('Biometric login error:', error);
-      
-      // Handle specific error cases
-      if (error.toString().includes('User not found')) {
-        Alert.alert('User Not Found', 'No account found with the stored email. Please login with email and password first.');
-      } else if (error.toString().includes('Biometric data not found')) {
-        Alert.alert('Biometric Not Set Up', 'Biometric authentication is not set up for this device. Please login with email and password first.');
-      } else if (error.toString().includes('Biometric verification failed')) {
-        Alert.alert('Verification Failed', 'Biometric verification failed. Please try again or use email/password login.');
-    } else {
-        Alert.alert('Login Failed', error.toString() || 'Biometric login failed. Please try again.');
-      }
+      Alert.alert('Login Failed', 'Biometric login failed. Please try again or use email/password login.');
     } finally {
       setBiometricLoading(false);
     }

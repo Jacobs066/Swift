@@ -18,13 +18,14 @@ export const login = async (emailOrPhone, password) => {
   }
 };
 
-export const signup = async (fullName, email, phoneNumber, password) => {
+export const signup = async (username, fullName, email, phoneNumber, password) => {
   try {
     const response = await axios.post(`${API_URL}/api/auth/signup`, {
       emailOrPhone: email, // Use email as emailOrPhone
-      username: fullName, // Use fullName as username
+      username: username, // Use first word of full name as username
       password: password,
       confirmPassword: password, // Use same password for confirmation
+      firstName: fullName // Store full name in firstName for now
     });
     console.log('Signup response:', response);
     return response.data;
@@ -50,12 +51,82 @@ export const getUserProfile = async () => {
 export const getAccountBalance = async () => {
   try {
     const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/wallets/balances`, {
+    const response = await axios.get(`${API_URL}/api/wallets/balances?userId=1`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || 'Failed to fetch account balance';
+  }
+};
+
+export const getUserWallets = async (userId = 1) => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    const response = await axios.get(`${API_URL}/api/wallets/wallets?userId=${userId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  } catch (error) {
+    console.log('Failed to fetch user wallets:', error);
+    throw error.response?.data?.message || 'Failed to fetch user wallets';
+  }
+};
+
+export const ensureUserWallets = async (userId = 1) => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    console.log('Ensuring wallets for user:', userId);
+    const response = await axios.post(`${API_URL}/api/wallets/wallets/ensure?userId=${userId}`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log('Wallets ensured successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.log('Failed to ensure user wallets:', error);
+    // Try alternative endpoint path
+    try {
+      console.log('Trying alternative endpoint...');
+      const response = await axios.post(`${API_URL}/api/wallets/ensure?userId=${userId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      console.log('Wallets ensured successfully with alternative endpoint:', response.data);
+      return response.data;
+    } catch (altError) {
+      console.log('Alternative endpoint also failed:', altError);
+      // Don't throw error, just log it and continue
+      return { success: false, message: 'Failed to ensure user wallets' };
+    }
+  }
+};
+
+export const createWalletsForUser = async (userId = 1) => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    console.log('Creating wallets for user:', userId);
+    const response = await axios.post(`${API_URL}/api/user/create-wallets?userId=${userId}`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log('Wallets created successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.log('Failed to create wallets for user:', error);
+    return { success: false, message: 'Failed to create wallets' };
+  }
+};
+
+export const allocateFundsToWallets = async (userId = 1) => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    console.log('Allocating funds to wallets for user:', userId);
+    const response = await axios.post(`${API_URL}/api/user/allocate-funds?userId=${userId}`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log('Funds allocated successfully:', response.data);
+    return response.data;
+  } catch (error) {
+    console.log('Failed to allocate funds:', error);
+    return { success: false, message: 'Failed to allocate funds' };
   }
 };
 
@@ -66,9 +137,12 @@ export const getRecentTransactions = async () => {
     const response = await axios.get(`${API_URL}/api/transactions/recent/1`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    return response.data;
+    console.log('Recent transactions response:', response.data);
+    return response.data || [];
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch recent transactions';
+    console.log('Recent transactions API error:', error);
+    // Return empty array instead of throwing error for better UX
+    return [];
   }
 };
 
@@ -78,9 +152,13 @@ export const getActivityLogs = async () => {
     const response = await axios.get(`${API_URL}/api/user/activity-logs`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    return response.data;
+    console.log('Activity logs response:', response.data);
+    // Extract logs array from response
+    return response.data?.logs || [];
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch activity logs';
+    console.log('Activity logs API error:', error);
+    // Return empty array instead of throwing error for better UX
+    return [];
   }
 };
 
@@ -92,7 +170,9 @@ export const getNotifications = async () => {
     });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch notifications';
+    console.log('Notifications API error:', error);
+    // Return empty array instead of throwing error
+    return { success: false, notifications: [] };
   }
 };
 
@@ -135,39 +215,62 @@ export const deleteNotification = async (notificationId) => {
 // Deposit API functions
 export const getDepositMethods = async () => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/deposit/methods`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
+    const response = await axios.get(`${API_URL}/api/deposit/methods`);
+    return response.data.methods || [];
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch deposit methods';
+    console.log('Deposit methods API error:', error);
+    // Return default methods if API fails
+    return [
+      {
+        id: 'mobile_money',
+        name: 'Mobile Money',
+        description: 'Deposit via Mobile Money',
+        icon: 'phone-portrait-outline',
+        enabled: true
+      },
+      {
+        id: 'bank',
+        name: 'Bank Transfer',
+        description: 'Deposit via Bank Transfer',
+        icon: 'business-outline',
+        enabled: true
+      },
+      {
+        id: 'card',
+        name: 'Debit/Credit Card',
+        description: 'Deposit via Card',
+        icon: 'card-outline',
+        enabled: true
+      }
+    ];
   }
 };
 
-export const initiateDeposit = async (method, amount) => {
+export const initiateDeposit = async (method, amount, depositData) => {
   try {
-    const token = await AsyncStorage.getItem('token');
+    console.log('Initiating deposit with:', { method, amount, depositData });
+    
     const response = await axios.post(`${API_URL}/api/deposit/initiate`, {
       method,
       amount,
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
+      email: depositData.email,
+      reference: depositData.reference,
+      userId: 1 // For demo purposes, using userId 1
     });
+    
+    console.log('Deposit initiated:', response.data);
     return response.data;
   } catch (error) {
+    console.log('Initiate deposit API error:', error);
     throw error.response?.data?.message || 'Failed to initiate deposit';
   }
 };
 
 export const processDeposit = async (depositId, paymentDetails) => {
   try {
-    const token = await AsyncStorage.getItem('token');
     const response = await axios.post(`${API_URL}/api/deposit/process`, {
       depositId,
-      paymentDetails,
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
+      paymentDetails
     });
     return response.data;
   } catch (error) {
@@ -175,32 +278,72 @@ export const processDeposit = async (depositId, paymentDetails) => {
   }
 };
 
-// Withdraw API functions
-export const getWithdrawMethods = async () => {
+export const verifyDeposit = async (email, reference, amount) => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/withdraw/methods`, {
-      headers: { Authorization: `Bearer ${token}` }
+    const response = await axios.post(`${API_URL}/api/wallets/deposit/verify`, {
+      email,
+      reference,
+      amount
     });
+    
+    console.log('Deposit verification response:', response.data);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch withdraw methods';
+    console.log('Verify deposit API error:', error);
+    throw error.response?.data?.message || 'Failed to verify deposit';
   }
 };
 
-export const initiateWithdraw = async (method, amount, accountDetails) => {
+// Withdraw API functions
+export const getWithdrawMethods = async () => {
+  try {
+    console.log('Calling withdraw methods API:', `${API_URL}/api/withdraw/methods`);
+    const response = await axios.get(`${API_URL}/api/withdraw/methods`);
+    console.log('Withdraw methods response:', response.data);
+    return response.data.methods || [];
+  } catch (error) {
+    console.log('Withdraw methods API error:', error);
+    console.log('Error details:', error.response?.data);
+    // Return default methods if API fails
+    return [
+      {
+        id: 'mobile_money',
+        name: 'Mobile Money',
+        description: 'Withdraw to Mobile Money',
+        icon: 'phone-portrait-outline',
+        enabled: true
+      },
+      {
+        id: 'bank',
+        name: 'Bank Transfer',
+        description: 'Withdraw to Bank Account',
+        icon: 'business-outline',
+        enabled: true
+      }
+    ];
+  }
+};
+
+export const initiateWithdraw = async (method, amount, recipientDetails) => {
   try {
     const token = await AsyncStorage.getItem('token');
+    console.log('Initiating withdrawal with:', { method, amount, recipientDetails });
+    
     const response = await axios.post(`${API_URL}/api/withdraw/initiate`, {
       method,
       amount,
-      accountDetails,
+      recipientDetails,
+      userId: 1 // For demo purposes, using userId 1
     }, {
       headers: { Authorization: `Bearer ${token}` }
     });
+    
+    console.log('Withdrawal initiated:', response.data);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to initiate withdraw';
+    console.log('Initiate withdrawal API error:', error);
+    console.log('Error response:', error.response?.data);
+    throw error.response?.data?.message || error.response?.data?.error || 'Failed to initiate withdrawal';
   }
 };
 
@@ -220,16 +363,23 @@ export const getSendMethods = async () => {
 export const initiateSend = async (method, amount, recipientDetails) => {
   try {
     const token = await AsyncStorage.getItem('token');
+    console.log('Initiating send with:', { method, amount, recipientDetails });
+
     const response = await axios.post(`${API_URL}/api/send/initiate`, {
       method,
       amount,
       recipientDetails,
+      userId: 1 // For demo purposes, using userId 1
     }, {
       headers: { Authorization: `Bearer ${token}` }
     });
+
+    console.log('Send initiated:', response.data);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to initiate send';
+    console.log('Initiate send API error:', error);
+    console.log('Error response:', error.response?.data);
+    throw error.response?.data?.message || error.response?.data?.error || 'Failed to initiate send';
   }
 };
 
@@ -277,6 +427,29 @@ export const initiateTransfer = async (fromCurrency, toCurrency, amount) => {
   }
 };
 
+export const performInterwalletTransfer = async (fromCurrency, toCurrency, amount, description = 'Interwallet transfer') => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    console.log('Performing interwallet transfer:', { fromCurrency, toCurrency, amount, description });
+    
+    const response = await axios.post(`${API_URL}/api/wallets/interwallet`, {
+      fromCurrency,
+      toCurrency,
+      amount,
+      userId: 1, // For demo purposes, using userId 1
+      description,
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    console.log('Interwallet transfer response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.log('Interwallet transfer error:', error);
+    throw error.response?.data?.message || 'Failed to perform interwallet transfer';
+  }
+};
+
 export const processTransfer = async (transferId, confirmationDetails) => {
   try {
     const token = await AsyncStorage.getItem('token');
@@ -295,9 +468,8 @@ export const processTransfer = async (transferId, confirmationDetails) => {
 // Transaction API functions
 export const getTransactionHistory = async (userId, filters = {}) => {
   try {
-    const token = await AsyncStorage.getItem('token');
     const params = new URLSearchParams({
-      userId,
+      userId: userId.toString(), // Ensure userId is a string
       page: filters.page || 0,
       size: filters.size || 20,
       sortBy: filters.sortBy || 'createdAt',
@@ -309,12 +481,19 @@ export const getTransactionHistory = async (userId, filters = {}) => {
       ...(filters.endDate && { endDate: filters.endDate }),
     });
     
-    const response = await axios.get(`${API_URL}/api/transactions/history?${params}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await axios.get(`${API_URL}/api/transactions/history?${params}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch transaction history';
+    console.log('Transaction history API error:', error);
+    // Return empty data instead of throwing error
+    return {
+      transactions: [],
+      currentPage: 0,
+      totalItems: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrevious: false
+    };
   }
 };
 
@@ -332,13 +511,17 @@ export const getTransactionById = async (transactionId) => {
 
 export const getTransactionSummary = async (userId) => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/transactions/summary/${userId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await axios.get(`${API_URL}/api/transactions/summary/${userId}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch transaction summary';
+    console.log('Transaction summary API error:', error);
+    // Return empty summary instead of throwing error
+    return {
+      totalTransactions: 0,
+      totalAmount: 0,
+      currentMonth: 'Current Month',
+      currencySymbol: '₵'
+    };
   }
 };
 
@@ -438,7 +621,12 @@ export const biometricLogin = async (emailOrPhone, biometricType, biometricData,
     });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Biometric login failed';
+    console.log('Biometric login API error:', error);
+    // Return error response instead of throwing
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Biometric login failed'
+    };
   }
 };
 
@@ -463,7 +651,14 @@ export const checkBiometricStatus = async (emailOrPhone) => {
     const response = await axios.get(`${API_URL}/api/auth/biometric/status?emailOrPhone=${emailOrPhone}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Failed to check biometric status';
+    console.log('Biometric status check error:', error);
+    // Return error response instead of throwing
+    return {
+      success: false,
+      hasBiometric: false,
+      biometricCount: 0,
+      message: error.response?.data?.message || 'Failed to check biometric status'
+    };
   }
 };
 
@@ -491,6 +686,10 @@ const api = {
   signup,
   getUserProfile,
   getAccountBalance,
+  getUserWallets,
+  ensureUserWallets,
+  createWalletsForUser,
+  allocateFundsToWallets,
   getRecentTransactions,
   getActivityLogs,
   getNotifications,
@@ -500,6 +699,7 @@ const api = {
   getDepositMethods,
   initiateDeposit,
   processDeposit,
+  verifyDeposit,
   getWithdrawMethods,
   initiateWithdraw,
   getSendMethods,

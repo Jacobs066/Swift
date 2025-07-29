@@ -23,7 +23,7 @@ const SignUpScreen = () => {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({ fullName: '', email: '', phoneNumber: '', password: '', confirmPassword: '', api: '' });
@@ -58,9 +58,10 @@ const SignUpScreen = () => {
     setErrors(newErrors);
     if (hasError) return;
     try {
-      await signup(fullName, email, phoneNumber, password);
+      // Use the first word of the full name as the username
+      const username = fullName.trim().split(' ')[0];
+      await signup(username, fullName, email, phoneNumber, password);
       setErrors({ fullName: '', email: '', phoneNumber: '', password: '', confirmPassword: '', api: '' });
-      
       // Navigate to OTP verification for signup
       router.push({
         pathname: '/screens/OTPVerificationScreen',
@@ -103,18 +104,15 @@ const SignUpScreen = () => {
       {/* Full Name */}
       <Text style={[styles.label, { color: colors.primary }]}>Full Name</Text>
       <TextInput
-        style={[styles.input, {
-          borderColor: colors.border,
-          backgroundColor: colors.inputBg,
-          color: colors.text,
-        }]}
-        placeholder="Enter full name"
+        style={[styles.input, { borderColor: colors.border, backgroundColor: colors.inputBg, color: colors.text }]}
+        placeholder="Enter your full name"
         placeholderTextColor={colors.placeholder}
         value={fullName}
         onChangeText={text => {
           setFullName(text);
           if (errors.fullName) setErrors(prev => ({ ...prev, fullName: '' }));
         }}
+        autoCapitalize="words"
       />
       {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
 

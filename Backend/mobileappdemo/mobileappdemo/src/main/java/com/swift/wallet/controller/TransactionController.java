@@ -173,7 +173,7 @@ public class TransactionController {
      */
     @GetMapping("/recent/{userId}")
     public ResponseEntity<List<TransactionHistoryDto>> getRecentTransactions(@PathVariable Long userId) {
-        List<TransactionHistoryDto> transactions = transactionService.getRecentTransactions(userId, 10);
+        List<TransactionHistoryDto> transactions = transactionService.getRecentTransactions(userId, 5);
         return ResponseEntity.ok(transactions);
     }
 

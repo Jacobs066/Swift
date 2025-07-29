@@ -7,6 +7,9 @@ import com.swift.auth.models.OtpEntry;
 import com.swift.auth.models.User;
 import com.swift.auth.repository.OtpRepository;
 import com.swift.auth.repository.UserRepository;
+import com.swift.wallet.service.WalletService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,8 +20,6 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Service
 public class AuthService {
@@ -32,6 +33,9 @@ public class AuthService {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    @Autowired
+    private WalletService walletService;
 
     public ResponseEntity<?> signup(SignupRequest request) {
         logger.info("Processing signup for: {}", request.getEmailOrPhone());
@@ -64,6 +68,8 @@ public class AuthService {
         user.setEmailOrPhone(request.getEmailOrPhone());
         user.setUsername(request.getUsername());
         user.setPassword(request.getPassword()); // In production, this should be hashed
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
         // Set email field if input is an email
         if (request.getEmailOrPhone() != null && request.getEmailOrPhone().contains("@")) {
             user.setEmail(request.getEmailOrPhone());
@@ -74,6 +80,16 @@ public class AuthService {
         }
         userRepository.save(user);
         logger.info("User created: {}", user.getUsername());
+
+        // Create default wallets for the new user
+        try {
+            logger.info("Creating default wallets for user: {}", user.getUsername());
+            walletService.createUserWallets(user);
+            logger.info("Default wallets created successfully for user: {}", user.getUsername());
+        } catch (Exception e) {
+            logger.error("Failed to create default wallets for user {}: {}", user.getUsername(), e.getMessage());
+            // Don't fail the registration if wallet creation fails
+        }
 
         // Send welcome email
         try {

@@ -14,6 +14,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { initiateWithdraw } from '../api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
 
 const MobileWalletWithdrawScreen = () => {
   const router = useRouter();
@@ -57,20 +59,46 @@ const MobileWalletWithdrawScreen = () => {
         }
       };
 
-      await initiateWithdraw('mobile_money', parseFloat(amount), withdrawData.recipientDetails);
+      console.log('Initiating withdrawal with:', withdrawData);
+      const result = await initiateWithdraw('mobile_money', parseFloat(amount), withdrawData.recipientDetails);
       
-      Alert.alert(
-        t('success'), 
-        t('withdrawalInitiatedSuccess') || `₵${amount} withdrawal request sent to ${phoneNumber}`,
-        [
-          { 
-            text: t('continue'), 
-            onPress: () => router.back() 
-          }
-        ]
-      );
+      if (result.success) {
+        // Check if this is a mock response
+        if (result.isMock) {
+          Alert.alert(
+            'Withdrawal Initiated (Test Mode)', 
+            `Your withdrawal of ₵${amount} has been initiated successfully in test mode. This is a demo transaction.`,
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Navigate back to home screen
+                  router.push('/screens/HomeScreen');
+                }
+              }
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Withdrawal Successful', 
+            `Your withdrawal of ₵${amount} has been initiated successfully!`,
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Navigate back to home screen
+                  router.push('/screens/HomeScreen');
+                }
+              }
+            ]
+          );
+        }
+      } else {
+        Alert.alert(t('error'), 'Failed to initiate withdrawal. Please try again.');
+      }
     } catch (error) {
-      Alert.alert(t('error'), t('withdrawalFailed') || 'Failed to initiate withdrawal: ' + error.toString());
+      console.error('Withdrawal error:', error);
+      Alert.alert(t('error'), 'Failed to initiate withdrawal: ' + error.toString());
     } finally {
       setProcessing(false);
     }

@@ -113,12 +113,22 @@ const SendToBankScreen = () => {
 
       const result = await initiateSend('bank', parseFloat(amount), sendData.recipientDetails);
       
-      Alert.alert('Success', 'Money sent successfully!', [
-        { 
-          text: 'OK', 
-          onPress: () => router.push('/screens/SendSuccess') 
-        }
-      ]);
+      // Check if this is a mock response
+      if (result.isMock) {
+        Alert.alert('Send Initiated (Test Mode)', `Your send of ₵${amount} to ${accountName} has been initiated successfully in test mode. This is a demo transaction.`, [
+          { 
+            text: 'OK', 
+            onPress: () => router.push('/screens/HomeScreen') 
+          }
+        ]);
+      } else {
+        Alert.alert('Success', 'Money sent successfully!', [
+          { 
+            text: 'OK', 
+            onPress: () => router.push('/screens/HomeScreen') 
+          }
+        ]);
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to send money: ' + error.toString());
     } finally {

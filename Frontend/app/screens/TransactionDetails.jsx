@@ -12,17 +12,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { 
-  getTransactionHistory, 
-  getTransactionSummary, 
-  updateTransactionStatus,
-  getTransactionsByStatus,
-  getTransactionsByType 
-} from '../api';
+import { useTranslation } from 'react-i18next';
+import { getTransactionHistory, getTransactionSummary } from '../api';
+import BottomNavBar from '../components/BottomNavBar';
 
-const TransactionsScreen = () => {
+const TransactionHistoryScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { theme } = useTheme();
+  const { t } = useTranslation();
+  
+  const isDarkMode = theme === 'dark';
+  const backgroundColor = isDarkMode ? '#000' : '#fff';
+  const textColor = isDarkMode ? '#fff' : '#333';
+  const cardColor = isDarkMode ? '#1c1c1e' : '#f6f6f6';
   
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +33,8 @@ const TransactionsScreen = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [totalReceived, setTotalReceived] = useState(0);
+  const [totalSent, setTotalSent] = useState(0);
 
   useEffect(() => {
     loadTransactionData();
@@ -61,12 +65,41 @@ const TransactionsScreen = () => {
       setCurrentPage(historyData.currentPage || 0);
       setHasMore(historyData.hasNext || false);
       
+      // Calculate totals from transactions
+      const transactions = historyData.transactions || [];
+      let received = 0;
+      let sent = 0;
+      
+      transactions.forEach(transaction => {
+        if (transaction.isIncoming) {
+          received += parseFloat(transaction.amount) || 0;
+        } else {
+          sent += parseFloat(transaction.amount) || 0;
+        }
+      });
+      
+      setTotalReceived(received);
+      setTotalSent(sent);
+      
       // Load transaction summary
       const summaryData = await getTransactionSummary(userId);
       setSummary(summaryData);
       
     } catch (error) {
-      Alert.alert('Error', 'Failed to load transaction data: ' + error.toString());
+      // Only log once to avoid spam
+      if (page === 0) {
+        console.log('Transaction history error:', error);
+      }
+      // Set empty data on error
+      setTransactions([]);
+      setTotalReceived(0);
+      setTotalSent(0);
+      setSummary({
+        totalTransactions: 0,
+        totalAmount: 0,
+        currentMonth: 'Current Month',
+        currencySymbol: '₵'
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -82,29 +115,6 @@ const TransactionsScreen = () => {
     if (hasMore && !loading) {
       loadTransactionData(currentPage + 1);
     }
-  };
-
-  const handleDelete = (id) => {
-    Alert.alert(
-      'Delete Transaction',
-      'Are you sure you want to delete this transaction?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            try {
-              await updateTransactionStatus(id, 'CANCELLED');
-              setTransactions(prev => prev.filter(item => item.id !== id));
-              Alert.alert('Success', 'Transaction cancelled successfully');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to cancel transaction: ' + error.toString());
-            }
-          },
-          style: 'destructive',
-        },
-      ]
-    );
   };
 
   const getTransactionIcon = (type, isIncoming, description) => {
@@ -252,9 +262,6 @@ const TransactionsScreen = () => {
         <Text style={[styles.amount, { color: '#fff' }]}>
           {formatAmount(item.amount, item.currency, item.isIncoming)}
         </Text>
-        <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-          <Ionicons name="trash-outline" size={20} color="#800080" />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -282,124 +289,138 @@ const TransactionsScreen = () => {
             Loading transactions...
           </Text>
         </View>
+        <BottomNavBar />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#121212' : '#f3ecf3ff' }]}>
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Ionicons name="arrow-back-circle" size={24} color="#800080" />
-      </TouchableOpacity>
+    <View style={{ flex: 1 }}>
+      <View style={[styles.container, { backgroundColor: isDarkMode ? '#121212' : '#f3ecf3ff' }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+        </TouchableOpacity>
 
-      <Text style={[styles.header, { color: '#800080' }]}>Transaction History</Text>
-      <Text style={[styles.subHeader, { color: '#800080' }]}>
-        {summary.currentMonth || 'Current Month'}
-      </Text>
-      <Text style={[styles.totalAmount, { color: '#800080' }]}>
-        {summary.totalAmount ? `${summary.currencySymbol || '₵'}${summary.totalAmount}` : '₵0.00'}
-      </Text>
+        <Text style={[styles.header, { color: '#800080' }]}>Transaction History</Text>
+        <Text style={[styles.subHeader, { color: '#800080' }]}>
+          {summary.currentMonth || 'Current Month'}
+        </Text>
 
-      {/* Filter Buttons */}
-      <View style={styles.filterContainer}>
-        {renderFilterButton('all', 'All')}
-        {renderFilterButton('COMPLETED', 'Completed')}
-        {renderFilterButton('PENDING', 'Pending')}
-        {renderFilterButton('FAILED', 'Failed')}
-      </View>
-
-      <View style={styles.summaryBoxes}>
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryNumber}>{transactions.length}</Text>
-          <Text style={styles.summaryLabel}>Transactions</Text>
-        </View>
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryNumber}>{summary.totalCategories || 0}</Text>
-          <Text style={styles.summaryLabel}>Categories</Text>
-        </View>
-      </View>
-
-      <FlatList
-        data={transactions}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ paddingBottom: 50 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.1}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-outline" size={64} color="#999" />
-            <Text style={[styles.emptyTitle, { color: isDarkMode ? '#fff' : '#333' }]}>
-              No Transactions Yet
+        {/* Total Amounts */}
+        <View style={styles.totalAmountsContainer}>
+          <View style={[styles.totalAmountCard, { backgroundColor: isDarkMode ? '#1c1c1e' : '#fff' }]}>
+            <Text style={[styles.totalAmountLabel, { color: isDarkMode ? '#fff' : '#333' }]}>Total Received</Text>
+            <Text style={[styles.totalAmountValue, { color: '#00E676' }]}>
+              {summary.currencySymbol || '₵'}{totalReceived.toFixed(2)}
             </Text>
-            <Text style={[styles.emptyText, { color: isDarkMode ? '#ccc' : '#666' }]}>
-              Your transaction history will appear here once you start making deposits, withdrawals, transfers, or other transactions.
-            </Text>
-            <View style={styles.emptyActions}>
-              <TouchableOpacity 
-                style={[styles.emptyActionBtn, { backgroundColor: '#800080' }]}
-                onPress={() => router.push('/screens/Deposit')}
-              >
-                <Ionicons name="cash-outline" size={20} color="#fff" />
-                <Text style={styles.emptyActionText}>Make a Deposit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.emptyActionBtn, { backgroundColor: '#f0f0f0' }]}
-                onPress={() => router.push('/screens/Convert')}
-              >
-                <Ionicons name="swap-horizontal-outline" size={20} color="#666" />
-                <Text style={[styles.emptyActionText, { color: '#666' }]}>Transfer Money</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        }
-      />
+          <View style={[styles.totalAmountCard, { backgroundColor: isDarkMode ? '#1c1c1e' : '#fff' }]}>
+            <Text style={[styles.totalAmountLabel, { color: isDarkMode ? '#fff' : '#333' }]}>Total Sent Out</Text>
+            <Text style={[styles.totalAmountValue, { color: '#F44336' }]}>
+              {summary.currencySymbol || '₵'}{totalSent.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Filter Buttons */}
+        <View style={styles.filterContainer}>
+          {renderFilterButton('all', 'All')}
+          {renderFilterButton('COMPLETED', 'Completed')}
+          {renderFilterButton('PENDING', 'Pending')}
+          {renderFilterButton('FAILED', 'Failed')}
+        </View>
+
+        <View style={styles.summaryBoxes}>
+          <View style={styles.summaryBox}>
+            <Text style={styles.summaryNumber}>{transactions.length}</Text>
+            <Text style={styles.summaryLabel}>Transactions</Text>
+          </View>
+          <View style={styles.summaryBox}>
+            <Text style={styles.summaryNumber}>{summary.totalCategories || 0}</Text>
+            <Text style={styles.summaryLabel}>Categories</Text>
+          </View>
+        </View>
+
+        <FlatList
+          data={transactions}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={{ paddingBottom: 50 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.1}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-outline" size={64} color="#999" />
+              <Text style={[styles.emptyTitle, { color: isDarkMode ? '#fff' : '#333' }]}>
+                No Transactions Yet
+              </Text>
+              <Text style={[styles.emptyText, { color: isDarkMode ? '#ccc' : '#666' }]}>
+                Your transaction history will appear here once you start making deposits, withdrawals, transfers, or other transactions.
+              </Text>
+              <View style={styles.emptyActions}>
+                <TouchableOpacity 
+                  style={[styles.emptyActionBtn, { backgroundColor: '#800080' }]}
+                  onPress={() => router.push('/screens/Deposit')}
+                >
+                  <Ionicons name="cash-outline" size={20} color="#fff" />
+                  <Text style={styles.emptyActionText}>Make a Deposit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.emptyActionBtn, { backgroundColor: '#f0f0f0' }]}
+                  onPress={() => router.push('/screens/Convert')}
+                >
+                  <Ionicons name="swap-horizontal-outline" size={20} color="#666" />
+                  <Text style={[styles.emptyActionText, { color: '#666' }]}>Transfer Money</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          }
+        />
+      </View>
+      <BottomNavBar />
     </View>
   );
 };
 
-export default TransactionsScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    padding: 20,
   },
   backBtn: {
-    marginBottom: 10,
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 1,
   },
   header: {
     fontSize: 28,
     fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 60,
+    marginBottom: 5,
   },
   subHeader: {
-    fontSize: 14,
-    marginTop: 6,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   totalAmount: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginVertical: 16,
+    textAlign: 'center',
+    marginBottom: 20,
   },
   filterContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
-    gap: 8,
+    justifyContent: 'space-around',
+    marginBottom: 20,
   },
   filterBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
@@ -408,49 +429,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#800080',
   },
   filterText: {
-    fontSize: 14,
     color: '#666',
+    fontWeight: '600',
   },
   filterTextActive: {
     color: '#fff',
   },
   summaryBoxes: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     marginBottom: 20,
   },
   summaryBox: {
-    backgroundColor: '#800080',
-    padding: 20,
-    borderRadius: 12,
-    flex: 1,
-    marginHorizontal: 4,
     alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    minWidth: 100,
   },
   summaryNumber: {
-    color: '#fff',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#800080',
   },
   summaryLabel: {
-    color: '#ddd',
-    fontSize: 14,
-    marginTop: 6,
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
   },
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    padding: 14,
-    marginVertical: 6,
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   iconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 15,
   },
   details: {
     flex: 1,
@@ -458,22 +483,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
   sub: {
-    fontSize: 13,
+    fontSize: 12,
+    marginBottom: 4,
   },
   description: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 13,
+    marginBottom: 8,
   },
   statusContainer: {
-    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   statusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusText: {
     fontSize: 10,
@@ -484,47 +511,75 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   amount: {
-    fontWeight: '600',
     fontSize: 16,
+    fontWeight: 'bold',
   },
-  deleteBtn: {
-    marginTop: 6,
-    backgroundColor: '#e0c3f7',
-    padding: 6,
-    borderRadius: 6,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingHorizontal: 40,
+    marginTop: 50,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginTop: 15,
+    marginTop: 20,
+    marginBottom: 10,
   },
   emptyText: {
-    marginTop: 10,
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    lineHeight: 20,
+    marginBottom: 30,
   },
   emptyActions: {
     flexDirection: 'row',
-    marginTop: 20,
-    gap: 10,
+    justifyContent: 'space-around',
+    width: '100%',
   },
   emptyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
     paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 25,
+    minWidth: 120,
+    justifyContent: 'center',
   },
   emptyActionText: {
-    marginLeft: 10,
+    marginLeft: 8,
     fontSize: 14,
     fontWeight: '600',
   },
+  totalAmountsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  totalAmountCard: {
+    padding: 15,
+    borderRadius: 10,
+    minWidth: 150,
+    alignItems: 'center',
+  },
+  totalAmountLabel: {
+    fontSize: 14,
+    marginBottom: 5,
+  },
+  totalAmountValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
 });
+
+export default TransactionHistoryScreen; 

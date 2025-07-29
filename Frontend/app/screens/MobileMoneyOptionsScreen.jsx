@@ -1,101 +1,125 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 const MobileMoneyOptionsScreen = () => {
   const router = useRouter();
+  const { isDarkMode } = useTheme();
 
-  const handleWalletPress = (provider) => {
-    // Navigate to MobileWallet with selected provider
+  const mobileProviders = [
+    {
+      id: 'mtn',
+      name: 'MTN Mobile Money',
+      icon: 'phone-portrait-outline',
+      description: 'Send to MTN Mobile Money'
+    },
+    {
+      id: 'vodafone',
+      name: 'Vodafone Cash',
+      icon: 'phone-portrait-outline',
+      description: 'Send to Vodafone Cash'
+    },
+    {
+      id: 'airtel',
+      name: 'Airtel Money',
+      icon: 'phone-portrait-outline',
+      description: 'Send to Airtel Money'
+    }
+  ];
+
+  const colors = {
+    background: isDarkMode ? '#121212' : '#fff',
+    text: isDarkMode ? '#fff' : '#000',
+    subtext: isDarkMode ? '#ccc' : '#666',
+    card: isDarkMode ? '#1f1f1f' : '#f2e6f7',
+    accent: '#800080',
+    border: isDarkMode ? '#333' : '#ddd',
+  };
+
+  const handleProviderSelect = (provider) => {
     router.push({
       pathname: '/screens/MobileWallet',
-      params: { 
-        provider: provider,
-        providerName: provider === 'MTN' ? 'MTN Mobile Money' : 'TELECEL CASH'
-      }
+      params: { provider: provider.id, providerName: provider.name }
     });
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back-circle" size={32} color="#800080" />
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
+      </TouchableOpacity>
+
+      <Text style={[styles.title, { color: colors.accent }]}>Select Mobile Money Provider</Text>
+      <Text style={[styles.subtitle, { color: colors.subtext }]}>
+        Choose your mobile money provider to receive the withdrawal.
+      </Text>
+
+      {mobileProviders.map((provider) => (
+        <TouchableOpacity
+          key={provider.id}
+          style={[styles.providerCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => handleProviderSelect(provider)}
+        >
+          <View style={styles.providerInfo}>
+            <Ionicons name={provider.icon} size={24} color={colors.accent} />
+            <View style={styles.providerDetails}>
+              <Text style={[styles.providerName, { color: colors.text }]}>{provider.name}</Text>
+              <Text style={[styles.providerDescription, { color: colors.subtext }]}>{provider.description}</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.subtext} />
         </TouchableOpacity>
-      </View>
-
-      {/* Title */}
-      <Text style={styles.title}>Select mobile money provider</Text>
-
-      {/* Wallet Options */}
-      <TouchableOpacity
-        style={styles.walletOption}
-        onPress={() => handleWalletPress('MTN')}
-      >
-        <Image
-          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/8/8b/MTN_Logo.svg' }}
-          style={styles.logo}
-        />
-        <Text style={styles.walletText}>MTN Mobile Money</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.walletOption}
-        onPress={() => handleWalletPress('TELECEL')}
-      >
-        <Image
-          source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/0/05/Telecel_logo.png' }}
-          style={styles.logo}
-        />
-        <Text style={styles.walletText}>TELECEL CASH</Text>
-      </TouchableOpacity>
-    </View>
+      ))}
+    </ScrollView>
   );
 };
-
-export default MobileMoneyOptionsScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 24,
+    padding: 20,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  time: {
-    color: '#800080',
-    fontSize: 16,
-    fontWeight: 'bold',
+  backButton: {
+    marginTop: 20,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginVertical: 24,
+    marginBottom: 10,
   },
-  walletOption: {
+  subtitle: {
+    fontSize: 16,
+    marginBottom: 30,
+  },
+  providerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#800080',
-    padding: 14,
+    justifyContent: 'space-between',
+    padding: 20,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 15,
+    borderWidth: 1,
   },
-  logo: {
-    width: 30,
-    height: 30,
-    resizeMode: 'contain',
-    marginRight: 12,
+  providerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
-  walletText: {
+  providerDetails: {
+    marginLeft: 15,
+    flex: 1,
+  },
+  providerName: {
     fontSize: 16,
-    color: '#800080',
     fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  providerDescription: {
+    fontSize: 14,
   },
 });
+
+export default MobileMoneyOptionsScreen;

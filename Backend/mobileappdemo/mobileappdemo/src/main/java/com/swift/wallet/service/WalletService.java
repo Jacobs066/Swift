@@ -38,17 +38,24 @@ public class WalletService {
      * Create wallets for a new user
      */
     public void createUserWallets(User user) {
-        // Create primary GHS wallet
-        Wallet primaryWallet = new Wallet(user, CurrencyType.GHS, true);
-        walletRepository.save(primaryWallet);
-
-        // Create other currency wallets
-        for (CurrencyType currency : CurrencyType.values()) {
-            if (currency != CurrencyType.GHS) {
-                Wallet wallet = new Wallet(user, currency, false);
-                walletRepository.save(wallet);
-            }
+        // Check if user already has wallets
+        List<Wallet> existingWallets = walletRepository.findUserWalletsOrdered(user.getId());
+        if (!existingWallets.isEmpty()) {
+            System.out.println("User " + user.getId() + " already has wallets, skipping creation");
+            return;
         }
+
+        System.out.println("Creating wallets for user: " + user.getId());
+        
+        // Create all currency wallets
+        for (CurrencyType currency : CurrencyType.values()) {
+            boolean isPrimary = currency == CurrencyType.GHS;
+            Wallet wallet = new Wallet(user, currency, isPrimary);
+            walletRepository.save(wallet);
+            System.out.println("Created " + currency + " wallet for user " + user.getId() + " (Primary: " + isPrimary + ")");
+        }
+        
+        System.out.println("All wallets created successfully for user: " + user.getId());
     }
 
     /**
@@ -81,14 +88,30 @@ public class WalletService {
      * Transfer money between wallets
      */
     public boolean transferMoney(TransferRequest request) {
-        // Look up wallets by user and currency
-        Optional<Wallet> fromWalletOpt = walletRepository.findUserWalletByCurrency(request.getUserId(), request.getFromCurrency());
-        Optional<Wallet> toWalletOpt = walletRepository.findUserWalletByCurrency(request.getUserId(), request.getToCurrency());
-        if (fromWalletOpt.isEmpty() || toWalletOpt.isEmpty()) {
-            throw new RuntimeException("One or both wallets not found");
+        System.out.println("Processing transfer request: " + request);
+        
+        // Find source and destination wallets
+        java.util.Optional<com.swift.wallet.models.Wallet> fromWalletOpt = walletRepository.findUserWalletByCurrency(request.getUserId(), request.getFromCurrency());
+        java.util.Optional<com.swift.wallet.models.Wallet> toWalletOpt = walletRepository.findUserWalletByCurrency(request.getUserId(), request.getToCurrency());
+        
+        if (fromWalletOpt.isEmpty()) {
+            throw new RuntimeException("From wallet not found for currency: " + request.getFromCurrency());
         }
-        Wallet fromWallet = fromWalletOpt.get();
-        Wallet toWallet = toWalletOpt.get();
+        if (toWalletOpt.isEmpty()) {
+            throw new RuntimeException("To wallet not found for currency: " + request.getToCurrency());
+        }
+        
+        com.swift.wallet.models.Wallet fromWallet = fromWalletOpt.get();
+        com.swift.wallet.models.Wallet toWallet = toWalletOpt.get();
+        
+        System.out.println("Found wallets - From: " + fromWallet.getCurrency() + " (Balance: " + fromWallet.getBalance() + 
+                         "), To: " + toWallet.getCurrency() + " (Balance: " + toWallet.getBalance() + ")");
+        
+        // Check sufficient balance in source wallet
+        if (fromWallet.getBalance().compareTo(request.getAmount()) < 0) {
+            throw new RuntimeException("Insufficient funds in " + fromWallet.getCurrency() + " wallet. Available: " + fromWallet.getBalance() + ", Required: " + request.getAmount());
+        }
+        
         return transferMoneyByWallets(fromWallet, toWallet, request);
     }
 
@@ -181,5 +204,30 @@ public class WalletService {
             wallet.getCreatedAt(),
             wallet.getUpdatedAt()
         );
+    }
+
+    /**
+     * Allocate funds to a specific wallet
+     */
+    public void allocateFundsToWallet(Long userId, CurrencyType currency, BigDecimal amount) {
+        System.out.println("Allocating " + amount + " " + currency + " to user " + userId);
+        
+        Optional<Wallet> walletOpt = walletRepository.findUserWalletByCurrency(userId, currency);
+        if (walletOpt.isEmpty()) {
+            throw new RuntimeException("Wallet not found for user " + userId + " and currency " + currency);
+        }
+        
+        Wallet wallet = walletOpt.get();
+        BigDecimal oldBalance = wallet.getBalance();
+        wallet.setBalance(wallet.getBalance().add(amount));
+        walletRepository.save(wallet);
+        
+        System.out.println("Wallet updated - User: " + userId + ", Currency: " + currency + 
+                         ", Old Balance: " + oldBalance + ", New Balance: " + wallet.getBalance());
+        
+        // Create allocation transaction
+        String reference = "ALLOCATION_" + System.currentTimeMillis();
+        transactionService.createTransaction(wallet, TransactionType.DEPOSIT, amount, currency, 
+                                         "Fund allocation", reference);
     }
 } 

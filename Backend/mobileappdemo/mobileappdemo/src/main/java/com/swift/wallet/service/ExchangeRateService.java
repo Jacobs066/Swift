@@ -56,12 +56,16 @@ public class ExchangeRateService {
      */
     private BigDecimal fetchExchangeRateFromAPI(CurrencyType fromCurrency, CurrencyType toCurrency) {
         try {
-            String url = apiUrl + fromCurrency.name();
+            // Construct proper API URL with key
+            String url = apiUrl + apiKey + "/latest/" + fromCurrency.name();
+            System.out.println("Fetching exchange rate from: " + url);
+            
             ExchangeRateResponse response = restTemplate.getForObject(url, ExchangeRateResponse.class);
 
             if (response != null && response.getRates() != null) {
                 BigDecimal rate = response.getRates().get(toCurrency.name());
                 if (rate != null) {
+                    System.out.println("Exchange rate found: " + fromCurrency + " to " + toCurrency + " = " + rate);
                     return rate;
                 }
             }
@@ -71,14 +75,66 @@ public class ExchangeRateService {
                 return BigDecimal.ONE;
             }
 
-            // Fallback: use a default rate (you might want to log this)
-            return BigDecimal.valueOf(1.2); // Default fallback rate
+            // Fallback: use realistic default rates based on currency pairs
+            BigDecimal fallbackRate = getFallbackRate(fromCurrency, toCurrency);
+            System.out.println("Using fallback rate: " + fromCurrency + " to " + toCurrency + " = " + fallbackRate);
+            return fallbackRate;
 
         } catch (Exception e) {
             // Log the error and return a fallback rate
             System.err.println("Error fetching exchange rate: " + e.getMessage());
-            return BigDecimal.valueOf(1.2); // Default fallback rate
+            BigDecimal fallbackRate = getFallbackRate(fromCurrency, toCurrency);
+            System.out.println("Using fallback rate due to error: " + fromCurrency + " to " + toCurrency + " = " + fallbackRate);
+            return fallbackRate;
         }
+    }
+
+    /**
+     * Get realistic fallback rates for common currency pairs
+     */
+    private BigDecimal getFallbackRate(CurrencyType fromCurrency, CurrencyType toCurrency) {
+        // GHS to other currencies
+        if (fromCurrency == CurrencyType.GHS) {
+            switch (toCurrency) {
+                case USD: return new BigDecimal("0.12");
+                case EUR: return new BigDecimal("0.11");
+                case GBP: return new BigDecimal("0.095");
+                default: return new BigDecimal("1.0");
+            }
+        }
+        
+        // Other currencies to GHS
+        if (toCurrency == CurrencyType.GHS) {
+            switch (fromCurrency) {
+                case USD: return new BigDecimal("8.33");
+                case EUR: return new BigDecimal("9.09");
+                case GBP: return new BigDecimal("10.53");
+                default: return new BigDecimal("1.0");
+            }
+        }
+        
+        // Cross-currency conversions (USD to EUR, etc.)
+        if (fromCurrency == CurrencyType.USD && toCurrency == CurrencyType.EUR) {
+            return new BigDecimal("0.92");
+        }
+        if (fromCurrency == CurrencyType.USD && toCurrency == CurrencyType.GBP) {
+            return new BigDecimal("0.79");
+        }
+        if (fromCurrency == CurrencyType.EUR && toCurrency == CurrencyType.USD) {
+            return new BigDecimal("1.09");
+        }
+        if (fromCurrency == CurrencyType.EUR && toCurrency == CurrencyType.GBP) {
+            return new BigDecimal("0.86");
+        }
+        if (fromCurrency == CurrencyType.GBP && toCurrency == CurrencyType.USD) {
+            return new BigDecimal("1.27");
+        }
+        if (fromCurrency == CurrencyType.GBP && toCurrency == CurrencyType.EUR) {
+            return new BigDecimal("1.16");
+        }
+        
+        // Default fallback
+        return new BigDecimal("1.0");
     }
 
     /**
