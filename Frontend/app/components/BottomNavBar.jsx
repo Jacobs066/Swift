@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const shadow = Platform.select({
   ios: {
@@ -18,33 +18,29 @@ const shadow = Platform.select({
 const TABS = [
   { name: 'home', label: 'Home', route: '/screens/HomeScreen' },
   { name: 'wallet', label: 'Wallet', route: '/screens/WalletScreen' },
-  { name: 'document-text', label: 'History', route: '/screens/TransactionDetails' },
+  { name: 'document-text', label: 'History', route: '/screens/TransactionHistory' },
   { name: 'settings', label: 'Settings', route: '/screens/Settings' },
 ];
 
 const BottomNavBar = () => {
   const router = useRouter();
-  const pathname = usePathname();
 
   return (
     <View style={[styles.fabBar, { backgroundColor: '#d6bde1ff' }]}> 
       {TABS.map(tab => {
-        const active = pathname.startsWith(tab.route);
         return (
           <TouchableOpacity
             key={tab.name}
-            style={[styles.tab, active && styles.activeTab]}
+            style={styles.tab}
             onPress={() => {
-              if (!active) {
-                router.replace(tab.route);
-              }
+              router.push(tab.route);
             }}
             activeOpacity={0.8}
           >
             <Animated.View>
               <Ionicons name={tab.name} size={22} color="#800080" />
             </Animated.View>
-            <Text style={[styles.tabText, active && styles.activeTabText]}>{tab.label}</Text>
+            <Text style={styles.tabText}>{tab.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -76,13 +72,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#800080',
     marginTop: 2,
-  },
-  activeTab: {
-    backgroundColor: '#d2aae3ff',
-  },
-  activeTabText: {
-    fontWeight: 'bold',
-    color: '#800080',
   },
 });
 

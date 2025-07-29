@@ -14,13 +14,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { getTransferRates, performInterwalletTransfer } from '../api';
+import { getTransferRates, performInterwalletTransfer } from '../utils/api';
+import { useWallet } from '../context/WalletContext';
 
 const wallets = ['GHS', 'USD', 'EUR', 'GBP'];
 
 const ConvertScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const { transfer, balances } = useWallet();
 
   const [fromWallet, setFromWallet] = useState('GHS');
   const [toWallet, setToWallet] = useState('USD');
@@ -63,24 +65,41 @@ const ConvertScreen = () => {
     setConverted(result);
   };
 
-  const handleTransfer = async () => {
-    if (!amount || isNaN(amount)) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
-    if (!converted) {
-      Alert.alert('Error', 'Please convert the amount first');
-      return;
-    }
+  const customRates = {
+    USD: { GHS: 10.8 },
+    EUR: { GHS: 18.5 },
+    GBP: { GHS: 15 },
+    GHS: { USD: 1 / 10.8, EUR: 1 / 18.5, GBP: 1 / 15 },
+  };
 
+  const handleTransfer = async () => {
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+      Alert.alert('Invalid amount');
+      return;
+    }
+    if (Number(amount) > balances[fromWallet]) {
+      Alert.alert('Insufficient funds');
+      return;
+    }
+    
     try {
       setProcessing(true);
-      const result = await performInterwalletTransfer(fromWallet, toWallet, parseFloat(amount), `Transfer from ${fromWallet} to ${toWallet}`);
-      Alert.alert('Success', 'Transfer completed successfully!', [
-        { text: 'OK', onPress: () => router.push('/screens/HomeScreen') }
+      
+      // Use the new transfer function (exchange rate is calculated internally)
+      transfer(fromWallet, toWallet, Number(amount));
+      
+      Alert.alert('Transfer Successful', `${amount} ${fromWallet} transferred to ${toWallet}!`, [
+        {
+          text: 'OK',
+          onPress: () => router.push('/screens/HomeScreen'),
+        },
       ]);
+      setTimeout(() => {
+        router.push('/screens/HomeScreen');
+      }, 1500);
+      
     } catch (error) {
-      Alert.alert('Error', 'Failed to complete transfer: ' + error.toString());
+      Alert.alert('Error', 'Failed to process transfer: ' + error.toString());
     } finally {
       setProcessing(false);
     }

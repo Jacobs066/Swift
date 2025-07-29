@@ -15,7 +15,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } from '../api';
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } from '../utils/api';
 
 const NotificationScreen = () => {
   const router = useRouter();

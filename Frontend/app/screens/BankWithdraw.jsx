@@ -13,14 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { initiateWithdraw } from '../api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useWallet } from '../context/WalletContext';
 import { Linking } from 'react-native';
 
 const BankWithdrawScreen = () => {
   const router = useRouter();
   const { t } = useTranslation();
   const { isDarkMode } = useTheme();
+  const { sendOrWithdraw, balances } = useWallet();
 
   const [fullName, setFullName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -31,71 +31,26 @@ const BankWithdrawScreen = () => {
   const [processing, setProcessing] = useState(false);
 
   const handleWithdraw = async () => {
-    if (!fullName || !bankName || !accountNumber || !accountName || !amount || !reference) {
-      Alert.alert(t('error'), t('allFieldsRequired') || 'All fields are required');
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+      Alert.alert('Invalid amount');
       return;
     }
-
-    if (parseFloat(amount) <= 0) {
-      Alert.alert(t('error'), t('enterValidAmount') || 'Please enter a valid amount');
+    if (Number(amount) > balances.GHS) {
+      Alert.alert('Insufficient funds');
       return;
     }
-
+    
     try {
       setProcessing(true);
       
-      const withdrawData = {
-        method: 'bank',
-        amount: parseFloat(amount),
-        recipientDetails: {
-          fullName: fullName.trim(),
-          bankName: bankName.trim(),
-          accountNumber: accountNumber.trim(),
-          accountName: accountName.trim(),
-          reference: reference.trim()
-        }
-      };
-
-      console.log('Initiating bank withdrawal with:', withdrawData);
-      const result = await initiateWithdraw('bank', parseFloat(amount), withdrawData.recipientDetails);
+      // Use the sendOrWithdraw function with proper parameters for transaction tracking
+      sendOrWithdraw(Number(amount), 'Withdraw');
       
-      if (result.success) {
-        // Check if this is a mock response
-        if (result.isMock) {
-          Alert.alert(
-            'Bank Withdrawal Initiated (Test Mode)', 
-            `Your bank withdrawal of ₵${amount} has been initiated successfully in test mode. This is a demo transaction.`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Navigate back to home screen
-                  router.push('/screens/HomeScreen');
-                }
-              }
-            ]
-          );
-        } else {
-          Alert.alert(
-            'Bank Withdrawal Successful', 
-            `Your bank withdrawal of ₵${amount} has been initiated successfully!`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Navigate back to home screen
-                  router.push('/screens/HomeScreen');
-                }
-              }
-            ]
-          );
-        }
-      } else {
-        Alert.alert(t('error'), 'Failed to initiate bank withdrawal. Please try again.');
-      }
+      Alert.alert('Withdrawal Successful', `₵${amount} has been withdrawn from your GHS wallet!`);
+      router.push('/screens/HomeScreen');
+      
     } catch (error) {
-      console.error('Bank withdrawal error:', error);
-      Alert.alert(t('error'), 'Failed to initiate bank withdrawal: ' + error.toString());
+      Alert.alert('Error', 'Failed to process withdrawal: ' + error.toString());
     } finally {
       setProcessing(false);
     }

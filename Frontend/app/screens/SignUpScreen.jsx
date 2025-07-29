@@ -12,12 +12,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext'; // ✅ Using your context
-import { signup } from '../api';
+import { useProfile } from '../context/ProfileContext';
+import { signup } from '../utils/api';
 
 const SignUpScreen = () => {
   const router = useRouter();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const { setIsNewUser } = useProfile();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -62,6 +64,7 @@ const SignUpScreen = () => {
       const username = fullName.trim().split(' ')[0];
       await signup(username, fullName, email, phoneNumber, password);
       setErrors({ fullName: '', email: '', phoneNumber: '', password: '', confirmPassword: '', api: '' });
+      setIsNewUser(true);
       // Navigate to OTP verification for signup
       router.push({
         pathname: '/screens/OTPVerificationScreen',

@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getTransactionHistory, getTransactionSummary } from '../api';
+import { getTransactionHistory, getTransactionSummary } from '../utils/api';
 import BottomNavBar from '../components/BottomNavBar';
 
 const TransactionHistoryScreen = () => {

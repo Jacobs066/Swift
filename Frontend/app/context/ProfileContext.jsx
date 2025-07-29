@@ -1,16 +1,18 @@
 // context/ProfileContext.js
-import React, { createContext, useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
-export const ProfileContext = createContext();
+const ProfileContext = createContext();
 
 export const ProfileProvider = ({ children }) => {
-  const [profileImage, setProfileImage] = useState(null); // default: null or default avatar URI
-
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
   return (
-    <ProfileContext.Provider value={{ profileImage, setProfileImage }}>
+    <ProfileContext.Provider value={{ isNewUser, setIsNewUser, profileImage, setProfileImage }}>
       {children}
     </ProfileContext.Provider>
   );
 };
 
-export default ProfileProvider;
+export { ProfileContext };
+
+export const useProfile = () => useContext(ProfileContext);

@@ -13,15 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { initiateWithdraw } from '../api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Linking } from 'react-native';
+import { useWallet } from '../context/WalletContext';
 
 const MobileWalletWithdrawScreen = () => {
   const router = useRouter();
   const { t } = useTranslation();
   const params = useLocalSearchParams();
   const { isDarkMode } = useTheme();
+  const { sendOrWithdraw, balances } = useWallet();
 
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -33,7 +32,7 @@ const MobileWalletWithdrawScreen = () => {
   const provider = params.provider || 'MTN';
   const providerName = params.providerName || 'MTN Mobile Money';
 
-  const handleWithdraw = async () => {
+  const handleWithdraw = () => {
     if (!fullName || !phoneNumber || !amount || !reference) {
       Alert.alert(t('error'), t('allFieldsRequired') || 'All fields are required');
       return;
@@ -41,6 +40,11 @@ const MobileWalletWithdrawScreen = () => {
 
     if (parseFloat(amount) <= 0) {
       Alert.alert(t('error'), t('enterValidAmount') || 'Please enter a valid amount');
+      return;
+    }
+
+    if (Number(amount) > balances.GHS) {
+      Alert.alert(t('error'), t('insufficientFunds') || 'Insufficient funds in your GHS wallet.');
       return;
     }
 
@@ -60,45 +64,24 @@ const MobileWalletWithdrawScreen = () => {
       };
 
       console.log('Initiating withdrawal with:', withdrawData);
-      const result = await initiateWithdraw('mobile_money', parseFloat(amount), withdrawData.recipientDetails);
+      sendOrWithdraw(parseFloat(amount));
       
-      if (result.success) {
-        // Check if this is a mock response
-        if (result.isMock) {
-          Alert.alert(
-            'Withdrawal Initiated (Test Mode)', 
-            `Your withdrawal of ₵${amount} has been initiated successfully in test mode. This is a demo transaction.`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Navigate back to home screen
-                  router.push('/screens/HomeScreen');
-                }
-              }
-            ]
-          );
-        } else {
-          Alert.alert(
-            'Withdrawal Successful', 
-            `Your withdrawal of ₵${amount} has been initiated successfully!`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Navigate back to home screen
-                  router.push('/screens/HomeScreen');
-                }
-              }
-            ]
-          );
-        }
-      } else {
-        Alert.alert(t('error'), 'Failed to initiate withdrawal. Please try again.');
-      }
+      Alert.alert(
+        t('withdrawalSuccessful'), 
+        `${t('withdrawalSuccessfulMessage')} ₵${amount} has been withdrawn from your GHS wallet!`,
+        [
+          {
+            text: t('ok'),
+            onPress: () => {
+              // Navigate back to home screen
+              router.push('/screens/HomeScreen');
+            }
+          }
+        ]
+      );
     } catch (error) {
       console.error('Withdrawal error:', error);
-      Alert.alert(t('error'), 'Failed to initiate withdrawal: ' + error.toString());
+      Alert.alert(t('error'), t('withdrawalFailed') || 'Failed to initiate withdrawal: ' + error.toString());
     } finally {
       setProcessing(false);
     }

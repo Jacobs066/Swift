@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } fr
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { getWithdrawMethods, initiateWithdraw } from '../api';
+import { getWithdrawMethods, initiateWithdraw } from '../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useWallet } from '../context/WalletContext';
 
 const WithdrawScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const { sendOrWithdraw, balances } = useWallet();
   const [withdrawMethods, setWithdrawMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);

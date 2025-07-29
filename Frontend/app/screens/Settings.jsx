@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { ProfileContext } from '../context/ProfileContext';
 import { useTheme } from '../context/ThemeContext';
-import { getUserProfile } from '../api';
+import { getUserProfile } from '../utils/api';
 import BottomNavBar from '../components/BottomNavBar';
 
 const SettingsScreen = () => {
@@ -213,13 +213,13 @@ const SettingsScreen = () => {
             )}
             <View>
               <Text style={[styles.name, themeStyles.name]}>
-                {getDisplayName()}
+                {userProfile?.fullName || getDisplayName()}
               </Text>
               <Text style={themeStyles.email}>
-                {getDisplayEmail()}
+                {userProfile?.email || getDisplayEmail()}
               </Text>
               <Text style={themeStyles.phone}>
-                {getDisplayPhone()}
+                {userProfile?.phoneNumber || getDisplayPhone()}
               </Text>
             </View>
           </View>
@@ -268,7 +268,7 @@ const SettingsScreen = () => {
           <Text style={[styles.bottomLinkText, isDarkMode && styles.bottomLinkTextDark]}>Customer Service</Text>
         </TouchableOpacity>
       </ScrollView>
-      <BottomNavBar />
+      {/* <BottomNavBar /> */}
     </View>
   );
 };

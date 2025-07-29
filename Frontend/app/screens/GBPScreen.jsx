@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, Keyboard
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { getTransferRates, performInterwalletTransfer } from '../api';
+import { useWallet } from '../context/WalletContext';
 
 const toWallets = ['GHS', 'USD', 'EUR'];
 
 const ConvertFromGBPScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const { transfer, balances } = useWallet();
 
   const [toWallet, setToWallet] = useState('GHS');
   const [amount, setAmount] = useState('');
@@ -25,13 +26,15 @@ const ConvertFromGBPScreen = () => {
   const loadTransferRates = async () => {
     try {
       setLoading(true);
-      const rates = await getTransferRates();
-      setTransferRates(rates);
+      // Use hardcoded rates for simulation
+      setTransferRates({
+        GBP: { GHS: 13.98, USD: 1.30, EUR: 1.17 },
+      });
     } catch (error) {
       Alert.alert('Error', 'Failed to load transfer rates: ' + error.toString());
       // Fallback to hardcoded rates if API fails
       setTransferRates({
-        GBP: { GHS: 14.90, USD: 1.30, EUR: 1.17 },
+        GBP: { GHS: 13.98, USD: 1.30, EUR: 1.17 },
       });
     } finally {
       setLoading(false);
@@ -57,10 +60,17 @@ const ConvertFromGBPScreen = () => {
       Alert.alert('Error', 'Please convert the amount first');
       return;
     }
+    if (Number(amount) > balances.GBP) {
+      Alert.alert('Insufficient funds', 'You do not have enough GBP to make this transfer.');
+      return;
+    }
 
     try {
       setProcessing(true);
-      const result = await performInterwalletTransfer('GBP', toWallet, parseFloat(amount), `Transfer from GBP to ${toWallet}`);
+      
+      // Use the WalletContext transfer function
+      transfer('GBP', toWallet, Number(amount));
+      
       Alert.alert('Success', 'Transfer completed successfully!', [
         { text: 'OK', onPress: () => router.push('/screens/HomeScreen') }
       ]);

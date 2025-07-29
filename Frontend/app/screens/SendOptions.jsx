@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicat
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { getSendMethods } from '../api';
+import { getSendMethods } from '../utils/api';
 
 const SendOptionsScreen = () => {
   const router = useRouter();

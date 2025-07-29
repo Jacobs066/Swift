@@ -14,14 +14,16 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login } from '../api';
+import { login } from '../utils/api';
 import { useTranslation } from 'react-i18next';
 import { useColorScheme } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { useProfile } from '../context/ProfileContext';
 
 const LoginScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
+  const { setIsNewUser } = useProfile();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,6 +61,7 @@ const LoginScreen = () => {
         await AsyncStorage.setItem('token', data.token);
         await AsyncStorage.setItem('userData', JSON.stringify(data.user));
         await AsyncStorage.setItem('lastLoginEmail', email); // Store email for future logins
+        setIsNewUser(false);
       }
       setErrors({ email: '', password: '', api: '' });
       // If OTP is required, navigate to OTP verification

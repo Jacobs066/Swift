@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-import { initiateSend } from '../api';
+import { useWallet } from '../context/WalletContext';
 
 const banks = [
   {
@@ -67,6 +67,7 @@ const banks = [
 ];
 
 const SendToBankScreen = () => {
+  const { sendOrWithdraw, balances } = useWallet();
   const [selectedBank, setSelectedBank] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
@@ -88,8 +89,12 @@ const SendToBankScreen = () => {
       Alert.alert('Error', 'Please enter the account holder name');
       return false;
     }
-    if (!amount || parseFloat(amount) <= 0) {
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
+      return false;
+    }
+    if (Number(amount) > balances.GHS) {
+      Alert.alert('Insufficient funds', 'You do not have enough funds in your GHS wallet to send this amount.');
       return false;
     }
     return true;
@@ -101,34 +106,12 @@ const SendToBankScreen = () => {
     try {
       setProcessing(true);
       
-      const sendData = {
-        method: 'bank',
-        amount: parseFloat(amount),
-        recipientDetails: {
-          bank: selectedBank,
-          accountNumber: accountNumber,
-          accountName: accountName,
-        }
-      };
-
-      const result = await initiateSend('bank', parseFloat(amount), sendData.recipientDetails);
+      // Use the sendOrWithdraw function with proper parameters for transaction tracking
+      sendOrWithdraw(Number(amount), 'Send', accountName);
       
-      // Check if this is a mock response
-      if (result.isMock) {
-        Alert.alert('Send Initiated (Test Mode)', `Your send of ₵${amount} to ${accountName} has been initiated successfully in test mode. This is a demo transaction.`, [
-          { 
-            text: 'OK', 
-            onPress: () => router.push('/screens/HomeScreen') 
-          }
-        ]);
-      } else {
-        Alert.alert('Success', 'Money sent successfully!', [
-          { 
-            text: 'OK', 
-            onPress: () => router.push('/screens/HomeScreen') 
-          }
-        ]);
-      }
+      Alert.alert('Send Successful', `₵${amount} has been sent from your GHS wallet!`);
+      router.push('/screens/HomeScreen');
+
     } catch (error) {
       Alert.alert('Error', 'Failed to send money: ' + error.toString());
     } finally {

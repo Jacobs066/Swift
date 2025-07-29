@@ -8,17 +8,103 @@ import {
   Animated,
   Platform,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getUserProfile, getAccountBalance, getRecentTransactions, getActivityLogs, getNotifications, createWalletsForUser } from '../api';
+import { getUserProfile, getAccountBalance, getRecentTransactions, getActivityLogs, getNotifications, createWalletsForUser } from '../utils/api';
+import { useWallet } from '../context/WalletContext';
+import { useProfile } from '../context/ProfileContext';
+
+const hardcodedRecentTx = [
+  {
+    id: 1,
+    transactionType: 'DEPOSIT',
+    amount: 500,
+    currencySymbol: '₵',
+    isIncoming: true,
+    description: 'Initial deposit',
+    formattedTime: 'Today, 10:00 AM',
+  },
+  {
+    id: 2,
+    transactionType: 'TRANSFER',
+    amount: 200,
+    currencySymbol: '₵',
+    isIncoming: false,
+    description: 'Transfer to USD wallet',
+    formattedTime: 'Yesterday, 3:45 PM',
+  },
+  {
+    id: 3,
+    transactionType: 'WITHDRAWAL',
+    amount: 100,
+    currencySymbol: '₵',
+    isIncoming: false,
+    description: 'Bank withdrawal',
+    formattedTime: '2 days ago, 1:20 PM',
+  },
+];
+
+const hardcodedRecentLogs = [
+  { id: 1, icon: 'cash-outline', label: 'Wallet created', time: 'Today, 9:00 AM' },
+  { id: 2, icon: 'card-outline', label: 'Card linked', time: 'Today, 9:10 AM' },
+  { id: 3, icon: 'swap-horizontal-outline', label: 'Interwallet transfer', time: 'Yesterday, 4:00 PM' },
+  { id: 4, icon: 'gift-outline', label: 'Reward received', time: 'Yesterday, 5:00 PM' },
+  { id: 5, icon: 'arrow-down-outline', label: 'Withdrawal processed', time: '2 days ago, 2:00 PM' },
+];
+
+const hardcodedNotifications = [
+  {
+    id: 1,
+    title: 'Welcome to Swift!',
+    message: 'Your account has been successfully created. Start exploring our features!',
+    type: 'welcome',
+    read: false,
+    timestamp: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    title: 'Security Alert',
+    message: 'New login detected from your device. If this wasn\'t you, please contact support.',
+    type: 'security',
+    read: false,
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+  },
+  {
+    id: 3,
+    title: 'Transaction Successful',
+    message: 'Your deposit of ₵500 has been processed successfully.',
+    type: 'transaction',
+    read: true,
+    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+  },
+  {
+    id: 4,
+    title: 'Reward Available',
+    message: 'You\'ve earned ₵50 in rewards! Check your wallet to claim.',
+    type: 'reward',
+    read: false,
+    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+  },
+  {
+    id: 5,
+    title: 'App Update',
+    message: 'New features available! Update to the latest version for better experience.',
+    type: 'update',
+    read: true,
+    timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago
+  },
+];
 
 const HomeScreen = () => {
   const router = useRouter();
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const { balances } = useWallet();
+  const { isNewUser } = useProfile();
 
   const isDarkMode = theme === 'dark';
   const backgroundColor = isDarkMode ? '#000' : '#fff';
@@ -31,11 +117,13 @@ const HomeScreen = () => {
   const [hasUnread, setHasUnread] = useState(false);
   const [badge, setBadge] = useState(0);
   const [userProfile, setUserProfile] = useState(null);
-  const [accountBalance, setAccountBalance] = useState(null);
   const [recentTx, setRecentTx] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const pulse = useRef(new Animated.Value(1)).current;
+  const [showGhsBalance, setShowGhsBalance] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     loadHomeData();
@@ -59,6 +147,16 @@ const HomeScreen = () => {
     }
   }, [hasUnread]);
 
+  useEffect(() => {
+    if (isNewUser) {
+      setRecentTx([]);
+      setRecentLogs([]);
+    } else {
+      setRecentTx(hardcodedRecentTx);
+      setRecentLogs(hardcodedRecentLogs);
+    }
+  }, [isNewUser]);
+
   const loadHomeData = async () => {
     try {
       setLoading(true);
@@ -74,28 +172,25 @@ const HomeScreen = () => {
         console.log('Failed to create wallets, but continuing...');
       }
       
-      const [profile, balances, transactions, logs, notifications] = await Promise.all([
+      const [profile, transactions, logs] = await Promise.all([
         getUserProfile().catch(() => ({ firstName: 'User' })),
-        getAccountBalance(),
         getRecentTransactions(),
         getActivityLogs(),
-        getNotifications()
       ]);
       setUserProfile(profile);
-      
-      console.log('Raw balances data:', balances);
-      console.log('Balances type:', typeof balances);
-      console.log('Balances length:', balances?.length);
-      
-      // Find the primary wallet (GHS) from the balances array
-      const primaryWallet = balances?.find(wallet => wallet.isPrimary || wallet.currency === 'GHS') || balances?.[0];
-      console.log('Selected primary wallet:', primaryWallet);
-      setAccountBalance(primaryWallet);
       
       console.log('Recent transactions loaded:', transactions);
       console.log('Activity logs loaded:', logs);
       setRecentTx(transactions);
       setRecentLogs(logs);
+      
+      // Set notifications based on user type
+      if (isNewUser) {
+        setNotifications([]); // Empty for signup users
+      } else {
+        setNotifications(hardcodedNotifications); // Hardcoded for login users
+      }
+      
       const unreadCount = notifications?.filter(n => !n.read)?.length || 0;
       setHasUnread(unreadCount > 0);
       setBadge(unreadCount);
@@ -110,6 +205,15 @@ const HomeScreen = () => {
     }
   };
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadHomeData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   const openDetails = (item) => router.push({ pathname: '/screens/TransactionDetails', params: item });
 
   if (loading) {
@@ -121,8 +225,26 @@ const HomeScreen = () => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <View style={[styles.container, { backgroundColor, flex: 1 }]}> {/* Ensure full height */}
+      {console.log('recentLogs:', recentLogs)}
+      {console.log('recentTx:', recentTx)}
+      <ScrollView
+        contentContainerStyle={{
+          ...styles.scrollContent,
+          flexGrow: 1,
+          minHeight: '100%',
+          paddingBottom: 140,
+        }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#800080']}
+            tintColor="#800080"
+          />
+        }
+      >
         <View style={styles.greetingRow}>
           <View style={styles.greetingLeft}>
             <View style={[styles.avatar, { backgroundColor: '#800080' }]}>
@@ -130,8 +252,8 @@ const HomeScreen = () => {
                 {userProfile?.firstName?.split(' ')[0]?.charAt(0) || userProfile?.fullName?.split(' ')[0]?.charAt(0) || 'U'}
               </Text>
             </View>
-            <Text style={[styles.welcomeText, { color: textColor }]}>
-              {t('welcomeBack')}, {userProfile?.firstName?.split(' ')[0] || userProfile?.fullName?.split(' ')[0] || 'User'}! 👋
+            <Text style={[styles.welcomeText, { color: textColor }]}> 
+              {t('welcomeBack')} to Swift! 👋
             </Text>
           </View>
 
@@ -155,13 +277,19 @@ const HomeScreen = () => {
         </View>
 
         <View style={[styles.balanceCard, { backgroundColor: '#800080' }]}>
-          <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>
-            {accountBalance?.currency || 'GHS'}
-          </Text>
-          <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>
-            ₵{accountBalance?.balance?.toFixed(2) || '0.00'}
-          </Text>
-
+          <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>GHS</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={[styles.balanceAmount, { color: balanceTextColor }]}> 
+              {showGhsBalance ? `₵${balances.GHS.toFixed(2)}` : '****'}
+            </Text>
+            <TouchableOpacity onPress={() => setShowGhsBalance(v => !v)} style={{ marginLeft: 10 }}>
+              <Ionicons
+                name={showGhsBalance ? 'eye-outline' : 'eye-off-outline'}
+                size={22}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
           <View style={styles.actionRow}>
             <ActionBtn icon="download-outline" label={t('deposit')} onPress={() => router.push('/screens/Deposit')} />
             <ActionBtn icon="cash-outline" label={t('withdraw')} onPress={() => router.push('/screens/Withdraw')} />
@@ -177,7 +305,7 @@ const HomeScreen = () => {
       <View style={[styles.fabBar, { backgroundColor: fabColor }]}>
         <Tab name="home" label="Home" active onPress={() => {}} />
         <Tab name="wallet" label="Wallet" onPress={() => router.push('/screens/WalletScreen')} />
-        <Tab name="document-text" label="History" onPress={() => router.push('/screens/TransactionDetails')} />
+        <Tab name="document-text" label="History" onPress={() => router.push('/screens/TransactionHistory')} />
         <Tab name="settings" label="Settings" onPress={() => router.push('/screens/Settings')} />
       </View>
     </View>
@@ -194,6 +322,14 @@ const ActionBtn = ({ icon, label, onPress }) => (
 const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPress = () => {} }) => {
   const { t } = useTranslation();
   
+  if (!Array.isArray(data)) {
+    return (
+      <View style={[styles.activityCard, { backgroundColor: cardColor }]}> 
+        <Text style={{ color: 'red' }}>Error: Activity data is not an array.</Text>
+      </View>
+    );
+  }
+
   const getTransactionIcon = (type, isIncoming, description) => {
     // Check for specific transaction types based on description first
     if (description) {
@@ -360,13 +496,14 @@ const shadow = Platform.select({
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 140 },
+  container: { flex: 1, minHeight: '100%' },
+  scrollContent: { flexGrow: 1, minHeight: '100%', padding: 20, paddingBottom: 140 },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+    paddingTop: 20, // Add padding to move top content down
   },
   greetingLeft: { flexDirection: 'row', alignItems: 'center' },
   avatar: {

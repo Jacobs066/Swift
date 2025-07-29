@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { markNotificationAsRead, getTransactionById } from '../api';
+import { markNotificationAsRead, getTransactionById } from '../utils/api';
 
 const NotificationDetail = () => {
   const router = useRouter();

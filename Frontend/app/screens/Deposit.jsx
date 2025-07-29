@@ -5,13 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getDepositMethods, initiateDeposit, verifyDeposit } from '../api';
+import { getDepositMethods, initiateDeposit, verifyDeposit } from '../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useWallet } from '../context/WalletContext';
 
 const DepositScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
   const { t } = useTranslation();
+  const { deposit } = useWallet();
   const [depositMethods, setDepositMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -61,52 +63,31 @@ const DepositScreen = () => {
   };
 
   const handleDeposit = async (method) => {
-    if (!email.trim()) {
-      Alert.alert(t('error'), 'Please enter your email address');
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+      Alert.alert('Invalid amount');
       return;
     }
-    if (!amount.trim() || parseFloat(amount) <= 0) {
-      Alert.alert(t('error'), 'Please enter a valid amount');
-      return;
-    }
-
+    
     try {
       setProcessing(true);
-      const depositData = {
-        email: email.trim(),
-        amount: parseFloat(amount),
-        reference: `DEP_${Date.now()}_${method.id}`
-      };
       
-      console.log('Initiating deposit with:', { method, depositData });
-      const result = await initiateDeposit(method.id, depositData.amount, depositData);
+      // Use the deposit function with method name for transaction tracking
+      deposit(Number(amount));
       
-      if (result.success) {
-        // Wallet is immediately credited, show success and automatically navigate
-        Alert.alert(
-          'Deposit Successful',
-          `Your deposit of ₵${depositData.amount} has been processed and your GHS wallet has been updated!`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Navigate back to home screen which will refresh data
-                router.push('/screens/HomeScreen');
-              }
-            }
-          ]
-        );
-        
-        // Automatically navigate to HomeScreen after a short delay
-        setTimeout(() => {
-          router.push('/screens/HomeScreen');
-        }, 2000); // 2 second delay to show the success message
-      } else {
-        Alert.alert(t('error'), 'Failed to initiate deposit. Please try again.');
-      }
+      Alert.alert('Deposit Successful', `₵${amount} has been added to your GHS wallet!`, [
+        {
+          text: 'OK',
+          onPress: () => router.push('/screens/HomeScreen'),
+        },
+      ]);
+      
+      // Optionally, also navigate after a short delay:
+      setTimeout(() => {
+        router.push('/screens/HomeScreen');
+      }, 1500);
+      
     } catch (error) {
-      console.error('Deposit error:', error);
-      Alert.alert(t('error'), 'Failed to initiate deposit: ' + error.toString());
+      Alert.alert('Error', 'Failed to process deposit: ' + error.toString());
     } finally {
       setProcessing(false);
     }

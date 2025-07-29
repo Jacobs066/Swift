@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { verifyOTP, resendOTP } from '../api';
+import { verifyOTP, resendOTP } from '../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OTPVerificationScreen = () => {

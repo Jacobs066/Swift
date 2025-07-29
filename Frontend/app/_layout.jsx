@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import { ProfileProvider } from './context/ProfileContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { WalletProvider } from './context/WalletContext';
 import '../i18n'; // Import i18n configuration
 
 export default function Layout() {
@@ -12,7 +13,9 @@ export default function Layout() {
       <LanguageProvider>
         <ThemeProvider>
           <ProfileProvider>
-            <Stack screenOptions={{ headerShown: false }} />
+            <WalletProvider>
+              <Stack screenOptions={{ headerShown: false }} />
+            </WalletProvider>
           </ProfileProvider>
         </ThemeProvider>
       </LanguageProvider>
