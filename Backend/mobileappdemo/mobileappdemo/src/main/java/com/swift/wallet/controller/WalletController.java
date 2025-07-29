@@ -53,30 +53,28 @@ public class WalletController {
      * Ensure user has wallets for all currencies
      */
     @PostMapping("/wallets/ensure")
-    public ResponseEntity<Map<String, Object>> ensureUserWallets(@RequestParam Long userId) {
+    public ResponseEntity<?> ensureWalletsExist(@RequestParam Long userId) {
         try {
             Optional<User> userOpt = userRepository.findById(userId);
             if (userOpt.isEmpty()) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", false);
-                response.put("message", "User not found");
-                return ResponseEntity.badRequest().body(response);
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "User not found"
+                ));
             }
 
             User user = userOpt.get();
             walletService.createUserWallets(user);
             
-            List<WalletDto> wallets = walletService.getUserWallets(userId);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "User wallets created successfully");
-            response.put("wallets", wallets);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Wallets ensured for user: " + user.getUsername()
+            ));
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Failed to create user wallets: " + e.getMessage());
-            return ResponseEntity.badRequest().body(response);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "message", "Failed to ensure wallets: " + e.getMessage()
+            ));
         }
     }
 

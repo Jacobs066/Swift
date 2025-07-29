@@ -4,6 +4,7 @@ import com.swift.auth.dto.LoginRequest;
 import com.swift.auth.dto.OtpRequest;
 import com.swift.auth.dto.SignupRequest;
 import com.swift.auth.service.AuthService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +22,7 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
+    public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest request) {
         logger.info("Received signup request: {}", request);
         ResponseEntity<?> response = authService.signup(request);
         logger.info("Signup response: {}", response.getBody());
@@ -29,7 +30,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         logger.info("Received login request: {}", request);
         ResponseEntity<?> response = authService.login(request);
         logger.info("Login response: {}", response.getBody());
@@ -37,7 +38,7 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestBody OtpRequest request) {
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody OtpRequest request) {
         return authService.verifyOtp(request);
     }
 

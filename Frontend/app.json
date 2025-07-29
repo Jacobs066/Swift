@@ -5,7 +5,7 @@
     "scheme": "SWIFT",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/swift-logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -19,7 +19,7 @@
     "android": {
       "package": "com.swift.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/swift-logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true

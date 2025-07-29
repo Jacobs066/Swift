@@ -3,6 +3,9 @@ package com.swift.auth.models;
 import com.swift.auth.enums.AuthProvider;
 import com.swift.wallet.models.Wallet;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,11 +18,16 @@ public class User {
     private Long id;
 
     @Column(unique = true)
+    @NotBlank(message = "Email or phone is required")
     private String emailOrPhone;
 
     @Column(unique = true)
+    @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
     private String username;
 
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
 
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -28,12 +36,17 @@ public class User {
     private List<Wallet> wallets = new ArrayList<>();
 
     @Column(unique = true)
+    @Email(message = "Email should be valid")
     private String email;
 
     @Column(unique = true)
+    @Size(min = 10, max = 15, message = "Phone number must be between 10 and 15 characters")
     private String phone;
 
+    @Size(max = 100, message = "First name must not exceed 100 characters")
     private String firstName;
+    
+    @Size(max = 100, message = "Last name must not exceed 100 characters")
     private String lastName;
 
     // Getters and setters
@@ -66,4 +79,16 @@ public class User {
 
     public String getLastName() { return lastName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
+    
+    public String getFullName() {
+        if (firstName != null && lastName != null) {
+            return firstName + " " + lastName;
+        } else if (firstName != null) {
+            return firstName;
+        } else if (lastName != null) {
+            return lastName;
+        } else {
+            return username;
+        }
+    }
 }

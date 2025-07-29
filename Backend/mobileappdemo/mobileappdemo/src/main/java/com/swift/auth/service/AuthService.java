@@ -3,11 +3,11 @@ package com.swift.auth.service;
 import com.swift.auth.dto.LoginRequest;
 import com.swift.auth.dto.OtpRequest;
 import com.swift.auth.dto.SignupRequest;
+import com.swift.auth.dto.UserResponse;
 import com.swift.auth.models.OtpEntry;
 import com.swift.auth.models.User;
 import com.swift.auth.repository.OtpRepository;
 import com.swift.auth.repository.UserRepository;
-import com.swift.wallet.service.WalletService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,15 +15,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.regex.Pattern;
 
 @Service
 public class AuthService {
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
 
     @Autowired
     private UserRepository userRepository;
@@ -34,64 +37,135 @@ public class AuthService {
     @Autowired
     private JavaMailSender mailSender;
 
-    @Autowired
-    private WalletService walletService;
-
+    @Transactional
     public ResponseEntity<?> signup(SignupRequest request) {
         logger.info("Processing signup for: {}", request.getEmailOrPhone());
-        // Validate password length (8 characters or more)
+        
+        try {
+            // Validate request
+            ResponseEntity<?> validationResponse = validateSignupRequest(request);
+            if (validationResponse != null) {
+                return validationResponse;
+            }
+
+            // Check for existing users
+            ResponseEntity<?> duplicateCheck = checkForExistingUsers(request);
+            if (duplicateCheck != null) {
+                return duplicateCheck;
+            }
+
+            // Create new user
+            User user = createUserFromRequest(request);
+            user = userRepository.save(user);
+            logger.info("User created successfully with ID: {}", user.getId());
+
+            // Send welcome email
+            sendWelcomeEmail(user);
+
+            // Generate and send OTP
+            sendSignupOtp(user);
+
+            UserResponse userResponse = convertToUserResponse(user);
+            String successMessage = String.format(
+                "Registration successful!\nUsername: %s\nEmail: %s\nAccount created: %s\n\nA welcome email and OTP have been sent to your email address.",
+                user.getUsername(),
+                user.getEmail(),
+                user.getCreatedAt().toString()
+            );
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true, 
+                "message", successMessage,
+                "user", userResponse
+            ));
+
+        } catch (Exception e) {
+            logger.error("Error during signup: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false, 
+                "message", "An error occurred during registration. Please try again."
+            ));
+        }
+    }
+
+    private ResponseEntity<?> validateSignupRequest(SignupRequest request) {
+        // Validate password length
         if (request.getPassword() == null || request.getPassword().length() < 8) {
-            logger.warn("Password too short for signup: {}", request.getEmailOrPhone());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Password must be at least 8 characters"));
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false, 
+                "message", "Password must be at least 8 characters long"
+            ));
         }
 
         // Validate password confirmation
-        if (request.getConfirmPassword() == null || !request.getPassword().equals(request.getConfirmPassword())) {
-            logger.warn("Password mismatch for signup: {}", request.getEmailOrPhone());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Passwords do not match"));
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false, 
+                "message", "Passwords do not match"
+            ));
         }
 
+        // Validate email format if emailOrPhone is an email
+        if (isEmail(request.getEmailOrPhone()) && !isValidEmail(request.getEmailOrPhone())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false, 
+                "message", "Invalid email format"
+            ));
+        }
+
+        return null;
+    }
+
+    private ResponseEntity<?> checkForExistingUsers(SignupRequest request) {
         // Check if email/phone already exists
-        if (userRepository.findByEmailOrPhone(request.getEmailOrPhone()).isPresent()) {
+        if (userRepository.existsByEmailOrPhone(request.getEmailOrPhone())) {
             logger.warn("Email/Phone already registered: {}", request.getEmailOrPhone());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Email/Phone already registered"));
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false, 
+                "message", "Email/Phone already registered"
+            ));
         }
 
         // Check if username already exists
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+        if (userRepository.existsByUsername(request.getUsername())) {
             logger.warn("Username already taken: {}", request.getUsername());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Username already taken"));
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false, 
+                "message", "Username already taken"
+            ));
         }
 
-        // Create new user
+        // Check if email already exists (if emailOrPhone is an email)
+        if (isEmail(request.getEmailOrPhone()) && userRepository.existsByEmail(request.getEmailOrPhone())) {
+            logger.warn("Email already registered: {}", request.getEmailOrPhone());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false, 
+                "message", "Email already registered"
+            ));
+        }
+
+        return null;
+    }
+
+    private User createUserFromRequest(SignupRequest request) {
         User user = new User();
         user.setEmailOrPhone(request.getEmailOrPhone());
         user.setUsername(request.getUsername());
-        user.setPassword(request.getPassword()); // In production, this should be hashed
+        user.setPassword(request.getPassword()); // Store plain text password
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
-        // Set email field if input is an email
-        if (request.getEmailOrPhone() != null && request.getEmailOrPhone().contains("@")) {
+        
+        // Set email or phone based on the input
+        if (isEmail(request.getEmailOrPhone())) {
             user.setEmail(request.getEmailOrPhone());
         } else {
-            // If not an email, do not proceed with signup (or you can handle phone signup differently)
-            logger.warn("Signup attempted with non-email identifier: {}", request.getEmailOrPhone());
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Signup requires a valid email address."));
+            user.setPhone(request.getEmailOrPhone());
         }
-        userRepository.save(user);
-        logger.info("User created: {}", user.getUsername());
+        
+        return user;
+    }
 
-        // Create default wallets for the new user
-        try {
-            logger.info("Creating default wallets for user: {}", user.getUsername());
-            walletService.createUserWallets(user);
-            logger.info("Default wallets created successfully for user: {}", user.getUsername());
-        } catch (Exception e) {
-            logger.error("Failed to create default wallets for user {}: {}", user.getUsername(), e.getMessage());
-            // Don't fail the registration if wallet creation fails
-        }
-
-        // Send welcome email
+    private void sendWelcomeEmail(User user) {
         try {
             logger.info("Attempting to send welcome email to: {}", user.getEmail());
             SimpleMailMessage welcomeMessage = new SimpleMailMessage();
@@ -107,7 +181,7 @@ public class AuthService {
                 "You can now log in to your account and start using our services.\n\n" +
                 "Best regards,\n" +
                 "The Swift Team",
-                user.getUsername(),
+                user.getFullName(),
                 user.getUsername(),
                 user.getEmail(),
                 user.getCreatedAt().toString()
@@ -117,19 +191,21 @@ public class AuthService {
             logger.info("Welcome email sent successfully!");
         } catch (Exception e) {
             logger.error("Failed to send welcome email: {}", e.getMessage());
-            e.printStackTrace();
         }
+    }
 
-        // Generate and send OTP to email
-        String otp = String.format("%06d", new Random().nextInt(999999));
-        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
-        OtpEntry entry = new OtpEntry();
-        entry.setEmail(user.getEmail());
-        entry.setOtp(otp);
-        entry.setExpiresAt(expiresAt);
-        otpRepository.save(entry);
-        logger.info("OTP generated and saved for user: {}", user.getUsername());
+    private void sendSignupOtp(User user) {
         try {
+            String otp = String.format("%06d", new Random().nextInt(999999));
+            LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
+            
+            OtpEntry entry = new OtpEntry();
+            entry.setEmail(user.getEmail());
+            entry.setOtp(otp);
+            entry.setExpiresAt(expiresAt);
+            otpRepository.save(entry);
+            logger.info("OTP generated and saved for user: {}", user.getUsername());
+            
             SimpleMailMessage otpMessage = new SimpleMailMessage();
             otpMessage.setTo(user.getEmail());
             otpMessage.setSubject("Your Registration OTP Code");
@@ -139,14 +215,28 @@ public class AuthService {
         } catch (Exception e) {
             logger.error("Failed to send OTP email: {}", e.getMessage());
         }
+    }
 
-        String successMessage = String.format(
-            "Registration successful!\nUsername: %s\nEmail: %s\nAccount created: %s\n\nA welcome email and OTP have been sent to your email address.",
+    private UserResponse convertToUserResponse(User user) {
+        return new UserResponse(
+            user.getId(),
             user.getUsername(),
             user.getEmail(),
-            user.getCreatedAt().toString()
+            user.getPhone(),
+            user.getEmailOrPhone(),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getFullName(),
+            user.getCreatedAt()
         );
-        return ResponseEntity.ok(Map.of("success", true, "message", successMessage));
+    }
+
+    private boolean isEmail(String emailOrPhone) {
+        return emailOrPhone != null && emailOrPhone.contains("@");
+    }
+
+    private boolean isValidEmail(String email) {
+        return EMAIL_PATTERN.matcher(email).matches();
     }
 
     public ResponseEntity<?> login(LoginRequest request) {
@@ -164,8 +254,8 @@ public class AuthService {
 
         User user = userOpt.get();
         
-        // Check password
-        if (!user.getPassword().equals(request.getPassword())) { // In production, use proper password hashing
+        // Check password using plain text comparison
+        if (!user.getPassword().equals(request.getPassword())) {
             logger.warn("Invalid credentials for user: {}", request.getEmailOrPhone());
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid credentials"));
         }
@@ -185,7 +275,7 @@ public class AuthService {
                 "• Login Time: %s\n\n" +
                 "Best regards,\n" +
                 "The Swift Team",
-                user.getUsername(),
+                user.getFullName(),
                 user.getUsername(),
                 user.getEmailOrPhone(),
                 java.time.LocalDateTime.now().toString()

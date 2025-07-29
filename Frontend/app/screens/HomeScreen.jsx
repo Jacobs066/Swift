@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -103,7 +104,7 @@ const HomeScreen = () => {
   const router = useRouter();
   const { theme } = useTheme();
   const { t } = useTranslation();
-  const { balances } = useWallet();
+  const { balances, isLoading: walletLoading, getCurrentUser } = useWallet();
   const { isNewUser } = useProfile();
 
   const isDarkMode = theme === 'dark';
@@ -162,6 +163,15 @@ const HomeScreen = () => {
       setLoading(true);
       
       console.log('=== LOADING HOME DATA ===');
+      console.log('Current user:', getCurrentUser());
+      console.log('Wallet loading:', walletLoading);
+      
+      // Wait for wallet data to load if it's still loading
+      if (walletLoading) {
+        console.log('Waiting for wallet data to load...');
+        // Wait a bit for wallet context to finish loading
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       
       // Ensure demo user has wallets - this is critical
       console.log('Creating wallets for user 1...');
@@ -216,10 +226,13 @@ const HomeScreen = () => {
 
   const openDetails = (item) => router.push({ pathname: '/screens/TransactionDetails', params: item });
 
-  if (loading) {
+  if (loading || walletLoading) {
     return (
       <View style={[styles.container, { backgroundColor, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: textColor }}>Loading...</Text>
+        <ActivityIndicator size="large" color="#800080" />
+        <Text style={{ color: textColor, marginTop: 10 }}>
+          {walletLoading ? 'Loading wallet data...' : 'Loading...'}
+        </Text>
       </View>
     );
   }

@@ -14,35 +14,117 @@ const WalletContext = createContext();
 export const WalletProvider = ({ children }) => {
   const [balances, setBalances] = useState(initialBalances);
   const [transactionHistory, setTransactionHistory] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load transaction history from AsyncStorage on app start
-  useEffect(() => {
-    loadTransactionHistory();
-  }, []);
-
-  // Save transaction history to AsyncStorage whenever it changes
-  useEffect(() => {
-    saveTransactionHistory();
-  }, [transactionHistory]);
-
-  const loadTransactionHistory = async () => {
+  // Get current user identifier (email or user ID)
+  const getCurrentUserKey = async () => {
     try {
-      const savedHistory = await AsyncStorage.getItem('transactionHistory');
-      if (savedHistory) {
-        setTransactionHistory(JSON.parse(savedHistory));
+      // Try to get user email first
+      const userEmail = await AsyncStorage.getItem('lastLoginEmail');
+      if (userEmail) {
+        return userEmail;
       }
+      
+      // Fallback to user data
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.email || user.emailOrPhone || user.id || 'default';
+      }
+      
+      // If no user data, use default
+      return 'default';
     } catch (error) {
-      console.log('Error loading transaction history:', error);
+      console.log('Error getting current user key:', error);
+      return 'default';
     }
   };
 
-  const saveTransactionHistory = async () => {
+  // Generate storage keys for current user
+  const getStorageKeys = async () => {
+    const userKey = await getCurrentUserKey();
+    return {
+      balances: `balances_${userKey}`,
+      transactions: `transactions_${userKey}`,
+    };
+  };
+
+  // Load user-specific data from AsyncStorage
+  const loadUserData = async () => {
     try {
-      await AsyncStorage.setItem('transactionHistory', JSON.stringify(transactionHistory));
+      setIsLoading(true);
+      const userKey = await getCurrentUserKey();
+      setCurrentUserId(userKey);
+      
+      const { balances: balancesKey, transactions: transactionsKey } = await getStorageKeys();
+      
+      // Load balances
+      const savedBalances = await AsyncStorage.getItem(balancesKey);
+      if (savedBalances) {
+        setBalances(JSON.parse(savedBalances));
+      } else {
+        // Initialize with default balances for new user
+        setBalances(initialBalances);
+        await AsyncStorage.setItem(balancesKey, JSON.stringify(initialBalances));
+      }
+      
+      // Load transaction history
+      const savedTransactions = await AsyncStorage.getItem(transactionsKey);
+      if (savedTransactions) {
+        setTransactionHistory(JSON.parse(savedTransactions));
+      } else {
+        setTransactionHistory([]);
+      }
+      
+    } catch (error) {
+      console.log('Error loading user data:', error);
+      // Fallback to default values
+      setBalances(initialBalances);
+      setTransactionHistory([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save balances to AsyncStorage
+  const saveBalances = async (newBalances) => {
+    try {
+      const { balances: balancesKey } = await getStorageKeys();
+      await AsyncStorage.setItem(balancesKey, JSON.stringify(newBalances));
+    } catch (error) {
+      console.log('Error saving balances:', error);
+    }
+  };
+
+  // Save transaction history to AsyncStorage
+  const saveTransactionHistory = async (newHistory) => {
+    try {
+      const { transactions: transactionsKey } = await getStorageKeys();
+      await AsyncStorage.setItem(transactionsKey, JSON.stringify(newHistory));
     } catch (error) {
       console.log('Error saving transaction history:', error);
     }
   };
+
+  // Load user data on app start
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  // Save balances whenever they change
+  useEffect(() => {
+    if (!isLoading) {
+      saveBalances(balances);
+    }
+  }, [balances, isLoading]);
+
+  // Save transaction history whenever it changes
+  useEffect(() => {
+    if (!isLoading) {
+      saveTransactionHistory(transactionHistory);
+    }
+  }, [transactionHistory, isLoading]);
 
   // Helper function to format timestamp
   const formatTimestamp = () => {
@@ -58,13 +140,15 @@ export const WalletProvider = ({ children }) => {
   };
 
   // Helper function to add transaction to history
-  const addTransaction = (type, amount, details = null) => {
+  const addTransaction = (type, amount, details = null, currency = 'GHS') => {
     const transaction = {
       id: Date.now() + Math.random(), // Unique ID
       type: type,
       amount: amount,
+      currency: currency,
       timestamp: formatTimestamp(),
-      details: details
+      details: details,
+      date: new Date().toISOString()
     };
 
     setTransactionHistory(prev => [transaction, ...prev]); // Add to beginning
@@ -72,25 +156,27 @@ export const WalletProvider = ({ children }) => {
 
   // Simulate deposit (GHS only)
   const deposit = (amount) => {
-    setBalances(prev => ({
-      ...prev,
-      GHS: prev.GHS + Number(amount),
-    }));
+    const newBalances = {
+      ...balances,
+      GHS: balances.GHS + Number(amount),
+    };
+    setBalances(newBalances);
 
-    // Add transaction to history using control structure
+    // Add transaction to history
     if (amount && amount > 0) {
-      addTransaction('Deposit', amount, `Deposited GHS ${amount}`);
+      addTransaction('Deposit', amount, `Deposited GHS ${amount}`, 'GHS');
     }
   };
 
   // Simulate send/withdraw (GHS only)
   const sendOrWithdraw = (amount, type = 'Send', recipient = null) => {
-    setBalances(prev => ({
-      ...prev,
-      GHS: prev.GHS - Number(amount),
-    }));
+    const newBalances = {
+      ...balances,
+      GHS: balances.GHS - Number(amount),
+    };
+    setBalances(newBalances);
 
-    // Add transaction to history using control structure
+    // Add transaction to history
     if (amount && amount > 0) {
       let details = '';
       
@@ -106,7 +192,7 @@ export const WalletProvider = ({ children }) => {
           details = `Transaction: GHS ${amount}`;
       }
       
-      addTransaction(type, amount, details);
+      addTransaction(type, amount, details, 'GHS');
     }
   };
 
@@ -124,13 +210,14 @@ export const WalletProvider = ({ children }) => {
 
   // Simulate transfer (any wallet to any wallet)
   const transfer = (from, to, amount, exchangeRate = 1) => {
-    setBalances(prev => ({
-      ...prev,
-      [from]: prev[from] - Number(amount),
-      [to]: prev[to] + Number(amount) * exchangeRate,
-    }));
+    const newBalances = {
+      ...balances,
+      [from]: balances[from] - Number(amount),
+      [to]: balances[to] + Number(amount) * exchangeRate,
+    };
+    setBalances(newBalances);
 
-    // Add transaction to history using control structure
+    // Add transaction to history
     if (amount && amount > 0) {
       let details = '';
       
@@ -144,13 +231,37 @@ export const WalletProvider = ({ children }) => {
         details = `Transferred ${amount} ${from} to ${to} (Rate: ${exchangeRate}, Received: ${convertedAmount})`;
       }
       
-      addTransaction('Transfer', amount, details);
+      addTransaction('Transfer', amount, details, from);
     }
   };
 
   // Clear transaction history (for testing)
   const clearTransactionHistory = () => {
     setTransactionHistory([]);
+  };
+
+  // Reset balances to default (for testing)
+  const resetBalances = () => {
+    setBalances(initialBalances);
+  };
+
+  // Clear all user data (for testing)
+  const clearAllUserData = async () => {
+    try {
+      const { balances: balancesKey, transactions: transactionsKey } = await getStorageKeys();
+      await AsyncStorage.removeItem(balancesKey);
+      await AsyncStorage.removeItem(transactionsKey);
+      setBalances(initialBalances);
+      setTransactionHistory([]);
+      console.log('All user data cleared');
+    } catch (error) {
+      console.log('Error clearing user data:', error);
+    }
+  };
+
+  // Get current user info
+  const getCurrentUser = () => {
+    return currentUserId;
   };
 
   return (
@@ -162,6 +273,10 @@ export const WalletProvider = ({ children }) => {
       setBalances, // for manual resets/testing
       transactionHistory,
       clearTransactionHistory,
+      resetBalances,
+      clearAllUserData,
+      getCurrentUser,
+      isLoading,
     }}>
       {children}
     </WalletContext.Provider>
