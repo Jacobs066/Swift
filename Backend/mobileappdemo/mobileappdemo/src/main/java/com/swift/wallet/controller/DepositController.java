@@ -100,6 +100,11 @@ public class DepositController {
 
             // Immediately credit the GHS wallet
             try {
+                System.out.println("=== DEPOSIT PROCESSING START ===");
+                System.out.println("User ID: " + userId);
+                System.out.println("Email: " + email);
+                System.out.println("Amount: " + amount);
+                
                 // Find user and GHS wallet
                 com.swift.auth.models.User user = userRepository.findByEmail(email).orElse(null);
                 if (user == null) {
@@ -107,9 +112,14 @@ public class DepositController {
                     user = new com.swift.auth.models.User();
                     user.setId(userId);
                     user.setEmail(email);
+                    System.out.println("Created default user for demo");
+                } else {
+                    System.out.println("Found existing user: " + user.getId());
                 }
                 
                 java.util.Optional<com.swift.wallet.models.Wallet> walletOpt = walletRepository.findUserWalletByCurrency(userId, com.swift.wallet.enums.CurrencyType.GHS);
+                System.out.println("Wallet lookup result - Found: " + walletOpt.isPresent());
+                
                 if (walletOpt.isEmpty()) {
                     // Create GHS wallet if it doesn't exist
                     com.swift.wallet.models.Wallet ghsWallet = new com.swift.wallet.models.Wallet();
@@ -119,9 +129,11 @@ public class DepositController {
                     ghsWallet.setPrimary(true);
                     walletRepository.save(ghsWallet);
                     walletOpt = java.util.Optional.of(ghsWallet);
+                    System.out.println("Created new GHS wallet with ID: " + ghsWallet.getId());
                 }
                 
                 com.swift.wallet.models.Wallet wallet = walletOpt.get();
+                System.out.println("Using wallet ID: " + wallet.getId() + ", Current balance: " + wallet.getBalance());
                 
                 // Credit wallet
                 java.math.BigDecimal oldBalance = wallet.getBalance();
@@ -134,6 +146,7 @@ public class DepositController {
                 transactionService.createTransaction(wallet, com.swift.wallet.enums.TransactionType.DEPOSIT, amount, com.swift.wallet.enums.CurrencyType.GHS, "Deposit via " + method, reference);
                 
                 System.out.println("Deposit transaction recorded successfully");
+                System.out.println("=== DEPOSIT PROCESSING END ===");
                 
             } catch (Exception e) {
                 System.err.println("Error crediting wallet: " + e.getMessage());

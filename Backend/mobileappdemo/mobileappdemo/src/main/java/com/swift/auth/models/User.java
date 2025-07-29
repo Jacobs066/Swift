@@ -27,9 +27,6 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Wallet> wallets = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<BiometricData> biometricData = new ArrayList<>();
-
     @Column(unique = true)
     private String email;
 
@@ -57,9 +54,6 @@ public class User {
 
     public List<Wallet> getWallets() { return wallets; }
     public void setWallets(List<Wallet> wallets) { this.wallets = wallets; }
-
-    public List<BiometricData> getBiometricData() { return biometricData; }
-    public void setBiometricData(List<BiometricData> biometricData) { this.biometricData = biometricData; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

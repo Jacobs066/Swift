@@ -62,10 +62,23 @@ public class WalletService {
      * Get all wallets for a user
      */
     public List<WalletDto> getUserWallets(Long userId) {
-        List<Wallet> wallets = walletRepository.findUserWalletsOrdered(userId);
-        return wallets.stream()
+        System.out.println("=== GET USER WALLETS ===");
+        System.out.println("User ID: " + userId);
+        
+        List<Wallet> wallets = walletRepository.findByUserId(userId);
+        System.out.println("Found " + wallets.size() + " wallets in database");
+        
+        List<WalletDto> walletDtos = wallets.stream()
                 .map(this::convertToDto)
-                .collect(Collectors.toList());
+                .toList();
+        
+        System.out.println("Converted to " + walletDtos.size() + " DTOs");
+        for (WalletDto dto : walletDtos) {
+            System.out.println("Wallet: " + dto.getCurrency() + " - Balance: " + dto.getBalance() + " - Primary: " + dto.isPrimary());
+        }
+        System.out.println("=== GET USER WALLETS END ===");
+        
+        return walletDtos;
     }
 
     /**

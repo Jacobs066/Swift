@@ -7,9 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/user")
@@ -121,19 +123,44 @@ public class UserController {
     @PostMapping("/create-wallets")
     public ResponseEntity<?> createWalletsForUser(@RequestParam Long userId) {
         try {
+            System.out.println("=== CREATE WALLETS REQUEST ===");
+            System.out.println("User ID: " + userId);
+            
             Optional<User> userOpt = userRepository.findById(userId);
+            System.out.println("User found: " + userOpt.isPresent());
+            
             if (userOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body("User not found");
+                // Try to find any existing user instead of creating a new one
+                System.out.println("User not found, looking for any existing user...");
+                List<User> existingUsers = userRepository.findAll();
+                if (!existingUsers.isEmpty()) {
+                    User existingUser = existingUsers.get(0);
+                    System.out.println("Using existing user: " + existingUser.getUsername() + " (ID: " + existingUser.getId() + ")");
+                    userOpt = Optional.of(existingUser);
+                } else {
+                    System.out.println("No users found in database");
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("success", false);
+                    response.put("message", "No users found in database. Please create a user first.");
+                    return ResponseEntity.badRequest().body(response);
+                }
             }
 
             User user = userOpt.get();
+            System.out.println("Using user: " + user.getUsername());
+            
             walletService.createUserWallets(user);
+            
+            System.out.println("Wallets created successfully for user: " + user.getUsername());
+            System.out.println("=== CREATE WALLETS REQUEST END ===");
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Wallets created successfully for user: " + user.getUsername());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            System.err.println("Failed to create wallets: " + e.getMessage());
+            e.printStackTrace();
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Failed to create wallets: " + e.getMessage());

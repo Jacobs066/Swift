@@ -79,15 +79,23 @@ const OTPVerificationScreen = () => {
         await AsyncStorage.setItem('verificationToken', response.token);
       }
       
-      // For biometric login, get stored user data
-      if (purpose === 'biometric_login') {
-        const tempUserData = await AsyncStorage.getItem('tempUserData');
-        if (tempUserData) {
-          const userData = JSON.parse(tempUserData);
-          // Store token for biometric login
-          await AsyncStorage.setItem('token', 'biometric-auth-token-' + Date.now());
-          await AsyncStorage.removeItem('tempUserData'); // Clean up
+      // For regular login, get user data from navigation params
+      if (purpose === 'login' || purpose === 'signup') {
+        const userData = await AsyncStorage.getItem('tempUserData');
+        if (userData) {
+          const user = JSON.parse(userData);
+          await AsyncStorage.setItem('token', user.token);
+          await AsyncStorage.setItem('userData', JSON.stringify(user));
+          await AsyncStorage.setItem('lastLoginEmail', user.email || user.emailOrPhone);
         }
+      }
+
+      // Navigate to home screen
+      if (purpose === 'login' || purpose === 'signup') {
+        router.push('/screens/HomeScreen');
+      } else {
+        // For other purposes, go back to previous screen
+        router.push('/screens/HomeScreen');
       }
       
       Alert.alert(
@@ -98,7 +106,7 @@ const OTPVerificationScreen = () => {
             text: t('continue'),
             onPress: () => {
               // Navigate based on purpose
-              if (purpose === 'login' || purpose === 'signup' || purpose === 'biometric_login') {
+              if (purpose === 'login' || purpose === 'signup') {
                 router.push('/screens/HomeScreen');
               } else {
                 router.push('/screens/HomeScreen');

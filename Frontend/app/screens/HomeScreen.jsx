@@ -63,8 +63,16 @@ const HomeScreen = () => {
     try {
       setLoading(true);
       
-      // Ensure demo user has wallets
-      await createWalletsForUser(1);
+      console.log('=== LOADING HOME DATA ===');
+      
+      // Ensure demo user has wallets - this is critical
+      console.log('Creating wallets for user 1...');
+      const walletResult = await createWalletsForUser(1);
+      console.log('Wallet creation result:', walletResult);
+      
+      if (!walletResult.success) {
+        console.log('Failed to create wallets, but continuing...');
+      }
       
       const [profile, balances, transactions, logs, notifications] = await Promise.all([
         getUserProfile().catch(() => ({ firstName: 'User' })),
@@ -75,17 +83,24 @@ const HomeScreen = () => {
       ]);
       setUserProfile(profile);
       
+      console.log('Raw balances data:', balances);
+      console.log('Balances type:', typeof balances);
+      console.log('Balances length:', balances?.length);
+      
       // Find the primary wallet (GHS) from the balances array
       const primaryWallet = balances?.find(wallet => wallet.isPrimary || wallet.currency === 'GHS') || balances?.[0];
+      console.log('Selected primary wallet:', primaryWallet);
       setAccountBalance(primaryWallet);
       
       console.log('Recent transactions loaded:', transactions);
       console.log('Activity logs loaded:', logs);
       setRecentTx(transactions);
       setRecentLogs(logs);
-      const unreadCount = notifications.filter(n => !n.read).length;
+      const unreadCount = notifications?.filter(n => !n.read)?.length || 0;
       setHasUnread(unreadCount > 0);
       setBadge(unreadCount);
+      
+      console.log('=== HOME DATA LOADED ===');
     } catch (error) {
       console.log('Error loading home data:', error);
       // Only alert for critical errors, not profile fetch

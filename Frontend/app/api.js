@@ -51,11 +51,15 @@ export const getUserProfile = async () => {
 export const getAccountBalance = async () => {
   try {
     const token = await AsyncStorage.getItem('token');
+    console.log('Fetching account balance for user 1...');
     const response = await axios.get(`${API_URL}/api/wallets/balances?userId=1`, {
       headers: { Authorization: `Bearer ${token}` }
     });
+    console.log('Balance response:', response.data);
     return response.data;
   } catch (error) {
+    console.log('Balance fetch error:', error);
+    console.log('Error response:', error.response?.data);
     throw error.response?.data?.message || 'Failed to fetch account balance';
   }
 };
@@ -601,87 +605,18 @@ export const resendOTP = async (phoneNumber, purpose = 'verification') => {
 export const getUserRecentTransactions = async (userId, limit = 10) => {
   try {
     const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/transactions/recent/${userId}`, {
+    const response = await axios.get(`${API_URL}/api/transactions/recent?userId=${userId}&limit=${limit}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return response.data;
   } catch (error) {
+    console.log('Failed to fetch recent transactions:', error);
     throw error.response?.data?.message || 'Failed to fetch recent transactions';
   }
 };
 
-// Biometric Authentication API functions
-export const biometricLogin = async (emailOrPhone, biometricType, biometricData, deviceId) => {
-  try {
-    const response = await axios.post(`${API_URL}/api/auth/biometric/login`, {
-      emailOrPhone,
-      biometricType,
-      biometricData,
-      deviceId
-    });
-    return response.data;
-  } catch (error) {
-    console.log('Biometric login API error:', error);
-    // Return error response instead of throwing
-    return {
-      success: false,
-      message: error.response?.data?.message || 'Biometric login failed'
-    };
-  }
-};
-
-export const setupBiometric = async (emailOrPhone, password, biometricType, biometricData, deviceId, deviceName) => {
-  try {
-    const response = await axios.post(`${API_URL}/api/auth/biometric/setup`, {
-      emailOrPhone,
-      password,
-      biometricType,
-      biometricData,
-      deviceId,
-      deviceName
-    });
-    return response.data;
-  } catch (error) {
-    throw error.response?.data?.message || 'Biometric setup failed';
-  }
-};
-
-export const checkBiometricStatus = async (emailOrPhone) => {
-  try {
-    const response = await axios.get(`${API_URL}/api/auth/biometric/status?emailOrPhone=${emailOrPhone}`);
-    return response.data;
-  } catch (error) {
-    console.log('Biometric status check error:', error);
-    // Return error response instead of throwing
-    return {
-      success: false,
-      hasBiometric: false,
-      biometricCount: 0,
-      message: error.response?.data?.message || 'Failed to check biometric status'
-    };
-  }
-};
-
-export const getBiometricDevices = async (emailOrPhone) => {
-  try {
-    const response = await axios.get(`${API_URL}/api/auth/biometric/devices?emailOrPhone=${emailOrPhone}`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data?.message || 'Failed to fetch biometric devices';
-  }
-};
-
-export const removeBiometricDevice = async (biometricId, emailOrPhone) => {
-  try {
-    const response = await axios.delete(`${API_URL}/api/auth/biometric/devices/${biometricId}?emailOrPhone=${emailOrPhone}`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data?.message || 'Failed to remove biometric device';
-  }
-}; 
-
-// Default export for the API module
-const api = {
+// Export all functions
+export {
   login,
   signup,
   getUserProfile,
@@ -707,6 +642,7 @@ const api = {
   processSend,
   getTransferRates,
   initiateTransfer,
+  performInterwalletTransfer,
   processTransfer,
   getTransactionHistory,
   getTransactionById,
@@ -717,13 +653,5 @@ const api = {
   sendOTP,
   verifyOTP,
   resendOTP,
-  getUserRecentTransactions,
-  biometricLogin,
-  setupBiometric,
-  checkBiometricStatus,
-  getBiometricDevices,
-  removeBiometricDevice,
-  API_URL
-};
-
-export default api; 
+  getUserRecentTransactions
+}; 

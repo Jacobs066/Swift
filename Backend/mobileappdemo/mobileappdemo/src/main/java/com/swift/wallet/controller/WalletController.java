@@ -307,7 +307,12 @@ public class WalletController {
      */
     @GetMapping("/balances")
     public ResponseEntity<List<Map<String, Object>>> getAllBalances(@RequestParam Long userId) {
+        System.out.println("=== BALANCE REQUEST ===");
+        System.out.println("User ID: " + userId);
+        
         List<WalletDto> wallets = walletService.getUserWallets(userId);
+        System.out.println("Found " + wallets.size() + " wallets for user " + userId);
+        
         List<Map<String, Object>> balances = wallets.stream()
                 .map(wallet -> {
                     Map<String, Object> balance = new HashMap<>();
@@ -316,9 +321,15 @@ public class WalletController {
                     balance.put("balance", wallet.getBalance());
                     balance.put("symbol", wallet.getCurrency().getSymbol());
                     balance.put("isPrimary", wallet.isPrimary());
+                    
+                    System.out.println("Wallet: " + wallet.getCurrency() + " - Balance: " + wallet.getBalance() + " - Primary: " + wallet.isPrimary());
                     return balance;
                 })
                 .toList();
+        
+        System.out.println("Returning " + balances.size() + " balance entries");
+        System.out.println("=== BALANCE REQUEST END ===");
+        
         return ResponseEntity.ok(balances);
     }
 } 
