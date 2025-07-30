@@ -2,6 +2,9 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Set your backend API base URL here
+// For real devices: Change this to your computer's IP address
+// Find your IP with: ipconfig (Windows) or ifconfig (Mac/Linux)
+// Example: 'http://192.168.1.100:8082'
 export const API_URL = 'http://192.168.137.1:8082';
 
 // AUTH
