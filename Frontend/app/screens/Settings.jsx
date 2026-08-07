@@ -9,39 +9,24 @@ import {
   Switch,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useProfile } from '../context/ProfileContext';
-import { useWallet } from '../context/WalletContext';
+import { useAuth } from '../context/AuthContext';
 import { getUserProfile } from '../utils/api';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 
 const SettingsScreen = () => {
   const router = useRouter();
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode, toggleTheme, colors, spacing, radius, typography } = useTheme();
   const { profileImage, setProfileImage } = useProfile();
-  const { 
-    balances, 
-    transactionHistory, 
-    getCurrentUser, 
-    clearAllUserData, 
-    resetBalances, 
-    clearTransactionHistory 
-  } = useWallet();
+  const { logout } = useAuth();
   const { t } = useTranslation();
   const [userProfile, setUserProfile] = useState(null);
-
-  const colors = {
-    background: isDarkMode ? '#121212' : '#fff',
-    text: isDarkMode ? '#fff' : '#000',
-    subtext: isDarkMode ? '#ccc' : '#666',
-    card: isDarkMode ? '#1f1f1f' : '#f2e6f7',
-    accent: '#800080',
-    border: isDarkMode ? '#333' : '#ddd',
-  };
 
   useEffect(() => {
     loadUserProfile();
@@ -49,8 +34,8 @@ const SettingsScreen = () => {
 
   const loadUserProfile = async () => {
     try {
-      const profile = await getUserProfile();
-      setUserProfile(profile);
+      const response = await getUserProfile();
+      setUserProfile(response?.user || response);
     } catch (error) {
       console.log('Failed to load user profile:', error);
     }
@@ -66,7 +51,11 @@ const SettingsScreen = () => {
   };
 
   const getDisplayName = () => {
-    return userProfile?.fullName || userProfile?.firstName + ' ' + userProfile?.lastName || 'User Name';
+    if (userProfile?.fullName) return userProfile.fullName;
+    if (userProfile?.firstName || userProfile?.lastName) {
+      return `${userProfile?.firstName || ''} ${userProfile?.lastName || ''}`.trim();
+    }
+    return 'User Name';
   };
 
   const getDisplayEmail = () => {
@@ -152,41 +141,10 @@ const SettingsScreen = () => {
     setProfileImage(null);
   };
 
-  // Debug functions for testing wallet persistence
-  const handleResetBalances = () => {
-    Alert.alert(
-      'Reset Balances',
-      'This will reset your balances to default values. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Reset', onPress: resetBalances, style: 'destructive' },
-      ]
-    );
+  const handleLogout = async () => {
+    await logout();
+    router.push('/screens/LoginScreen');
   };
-
-  const handleClearTransactions = () => {
-    Alert.alert(
-      'Clear Transactions',
-      'This will clear all transaction history. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', onPress: clearTransactionHistory, style: 'destructive' },
-      ]
-    );
-  };
-
-  const handleClearAllData = () => {
-    Alert.alert(
-      'Clear All Data',
-      'This will clear all wallet data for the current user. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear All', onPress: clearAllUserData, style: 'destructive' },
-      ]
-    );
-  };
-
-  const themeStyles = getThemeStyles(isDarkMode);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -194,13 +152,13 @@ const SettingsScreen = () => {
         {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.accent }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back-circle" size={24} color="#fff" />
+            <Ionicons name="arrow-back-circle" size={24} color={colors.accentText} />
           </TouchableOpacity>
-          <Text style={[styles.headerText, { color: '#fff' }]}>Settings</Text>
+          <Text style={[styles.headerText, { color: colors.accentText }]}>Settings</Text>
         </View>
 
         {/* Profile Section */}
-        <View style={[styles.card, themeStyles.card]}>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
           {/* Profile Info */}
           <View style={styles.profile}>
             {profileImage ? (
@@ -209,20 +167,20 @@ const SettingsScreen = () => {
                 style={styles.avatar}
               />
             ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: '#800080' }]}>
-                <Text style={styles.avatarText}>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.accent }]}>
+                <Text style={[styles.avatarText, { color: colors.accentText }]}>
                   {getInitials(getDisplayName())}
                 </Text>
               </View>
             )}
             <View>
-              <Text style={[styles.name, themeStyles.name]}>
+              <Text style={[styles.name, { color: colors.textPrimary }]}>
                 {userProfile?.fullName || getDisplayName()}
               </Text>
-              <Text style={themeStyles.email}>
+              <Text style={[styles.email, { color: colors.textMuted }]}>
                 {userProfile?.email || getDisplayEmail()}
               </Text>
-              <Text style={themeStyles.phone}>
+              <Text style={[styles.phone, { color: colors.textMuted }]}>
                 {userProfile?.phoneNumber || getDisplayPhone()}
               </Text>
             </View>
@@ -230,72 +188,51 @@ const SettingsScreen = () => {
 
           {/* Change Profile Photo */}
           <TouchableOpacity
-            style={[styles.profileBtn, themeStyles.profileBtn]}
+            style={[styles.profileBtn, { backgroundColor: colors.accent }]}
             onPress={showImagePickerOptions}
           >
-            <Text style={[styles.profileBtnText, themeStyles.profileBtnText]}>Change profile photo</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Debug Section - Wallet Testing */}
-        <View style={[styles.card, themeStyles.card]}>
-          <Text style={[styles.debugTitle, { color: colors.accent }]}>Debug - Wallet Testing</Text>
-          <Text style={[styles.debugText, { color: colors.subtext }]}>
-            Current User: {getCurrentUser()}
-          </Text>
-          <Text style={[styles.debugText, { color: colors.subtext }]}>
-            Balances: GHS {balances.GHS.toFixed(2)}, USD {balances.USD.toFixed(2)}
-          </Text>
-          <Text style={[styles.debugText, { color: colors.subtext }]}>
-            Transactions: {transactionHistory.length} items
-          </Text>
-          
-          <TouchableOpacity style={styles.debugButton} onPress={handleResetBalances}>
-            <Text style={styles.debugButtonText}>Reset Balances</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.debugButton} onPress={handleClearTransactions}>
-            <Text style={styles.debugButtonText}>Clear Transactions</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.debugButton, { backgroundColor: '#ff4444' }]} onPress={handleClearAllData}>
-            <Text style={styles.debugButtonText}>Clear All User Data</Text>
+            <Text style={[styles.profileBtnText, { color: colors.accentText }]}>Change profile photo</Text>
           </TouchableOpacity>
         </View>
 
         {/* Options */}
-        <View style={[styles.card, themeStyles.card]}>
-          <View style={styles.row}>
-            <Ionicons name="moon-outline" size={18} color="#800080" />
-            <Text style={[styles.label, themeStyles.label]}>Dark mode</Text>
-            <Switch value={isDarkMode} onValueChange={toggleTheme} />
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
+            <Ionicons name="moon-outline" size={18} color={colors.accent} />
+            <Text style={[styles.label, { color: colors.textPrimary }]}>Dark mode</Text>
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+              trackColor={{ false: colors.disabled, true: colors.accent }}
+              thumbColor={colors.surface}
+            />
           </View>
 
-          {settingsItem('lock-closed-outline', 'Change password', () => router.push('../../settings/Password'), isDarkMode)}
-          {settingsItem('shield-checkmark-outline', 'Privacy & Data', () => router.push('../../settings/Privacy'), isDarkMode)}
-          {settingsItem('language-outline', 'Language', () => router.push('/screens/LanguageSelectionScreen'), isDarkMode)}
-          {settingsItem('help-circle-outline', 'Help', () => router.push('../../settings/Help'), isDarkMode)}
+          {settingsItem('lock-closed-outline', 'Change password', () => router.push('../../settings/Password'), colors)}
+          {settingsItem('shield-checkmark-outline', 'Privacy & Data', () => router.push('../../settings/Privacy'), colors)}
+          {settingsItem('language-outline', 'Language', () => router.push('/screens/LanguageSelectionScreen'), colors)}
+          {settingsItem('help-circle-outline', 'Help', () => router.push('../../settings/Help'), colors)}
         </View>
 
         {/* Logout */}
-        <TouchableOpacity style={styles.logout} onPress={() => router.push('/screens/LoginScreen')}>
-          <Text style={styles.logoutText}>Log out</Text>
+        <TouchableOpacity style={[styles.logout, { backgroundColor: colors.error }]} onPress={handleLogout}>
+          <Text style={[styles.logoutText, { color: colors.accentText }]}>Log out</Text>
         </TouchableOpacity>
 
         {/* About Us */}
         <TouchableOpacity
-          style={[styles.bottomLink, isDarkMode && styles.bottomLinkDark]}
+          style={[styles.bottomLink, isDarkMode && { borderTopWidth: 1, borderTopColor: colors.border }]}
           onPress={() => router.push('../../settings/About')}
         >
-          <Text style={[styles.bottomLinkText, isDarkMode && styles.bottomLinkTextDark]}>About Us</Text>
+          <Text style={[styles.bottomLinkText, { color: colors.textMuted }]}>About Us</Text>
         </TouchableOpacity>
 
         {/* Customer Service */}
         <TouchableOpacity
-          style={[styles.bottomLink, isDarkMode && styles.bottomLinkDark]}
+          style={[styles.bottomLink, isDarkMode && { borderTopWidth: 1, borderTopColor: colors.border }]}
           onPress={() => router.push('../../settings/Help')}
         >
-          <Text style={[styles.bottomLinkText, isDarkMode && styles.bottomLinkTextDark]}>Customer Service</Text>
+          <Text style={[styles.bottomLinkText, { color: colors.textMuted }]}>Customer Service</Text>
         </TouchableOpacity>
       </ScrollView>
       {/* <BottomNavBar /> */}
@@ -303,48 +240,13 @@ const SettingsScreen = () => {
   );
 };
 
-const settingsItem = (icon, label, onPress, isDarkMode) => (
-  <TouchableOpacity style={styles.row} onPress={onPress}>
-    <Ionicons name={icon} size={18} color="#800080" />
-    <Text style={[styles.label, { color: isDarkMode ? '#eee' : '#333' }]}>{label}</Text>
-    <Ionicons name="chevron-forward-outline" size={18} color="#ccc" />
+const settingsItem = (icon, label, onPress, colors) => (
+  <TouchableOpacity style={[styles.row, { borderBottomColor: colors.border }]} onPress={onPress}>
+    <Ionicons name={icon} size={18} color={colors.accent} />
+    <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
+    <Ionicons name="chevron-forward-outline" size={18} color={colors.textMuted} />
   </TouchableOpacity>
 );
-
-const getThemeStyles = (isDarkMode) => ({
-  container: {
-    backgroundColor: isDarkMode ? '#121212' : '#fff',
-  },
-  header: {
-    backgroundColor: isDarkMode ? '#1e1e1e' : '#800080',
-  },
-  headerText: {
-    color: '#fff',
-  },
-  name: {
-    color: '#fff',
-  },
-  email: {
-    color: isDarkMode ? '#ccc' : '#f2f2f2',
-    fontSize: 13,
-  },
-  phone: {
-    color: isDarkMode ? '#999' : '#d1c7e0',
-    fontSize: 12,
-  },
-  profileBtn: {
-    backgroundColor: isDarkMode ? '#333' : '#fff',
-  },
-  profileBtnText: {
-    color: isDarkMode ? '#fff' : '#800080',
-  },
-  card: {
-    backgroundColor: isDarkMode ? '#222' : '#f6f6f6',
-  },
-  label: {
-    color: isDarkMode ? '#eee' : '#333',
-  },
-});
 
 const shadow = Platform.select({
   ios: {
@@ -382,7 +284,6 @@ const styles = StyleSheet.create({
     margin: 16,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#f2e6f7',
   },
   profile: {
     flexDirection: 'row',
@@ -404,7 +305,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarText: {
-    color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
   },
@@ -415,21 +315,17 @@ const styles = StyleSheet.create({
   },
   email: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 2,
   },
   phone: {
     fontSize: 14,
-    color: '#666',
   },
   profileBtn: {
-    backgroundColor: '#800080',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   profileBtnText: {
-    color: '#fff',
     fontWeight: 'bold',
   },
   row: {
@@ -438,7 +334,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   label: {
     flex: 1,
@@ -448,12 +343,10 @@ const styles = StyleSheet.create({
   logout: {
     margin: 16,
     padding: 16,
-    backgroundColor: '#ff4444',
     borderRadius: 12,
     alignItems: 'center',
   },
   logoutText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -462,38 +355,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
-  bottomLinkDark: {
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-  },
   bottomLinkText: {
-    color: '#666',
     fontSize: 14,
-  },
-  bottomLinkTextDark: {
-    color: '#ccc',
-  },
-  // Debug section styles
-  debugTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  debugText: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  debugButton: {
-    backgroundColor: '#800080',
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  debugButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
 });
 

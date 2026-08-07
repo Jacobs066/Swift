@@ -6,8 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 
 export default function Help() {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
-  const styles = getStyles(isDarkMode);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
 
   const openLink = (url) => {
     Linking.openURL(url).catch((err) => console.error("Couldn't load page", err));
@@ -16,7 +16,7 @@ export default function Help() {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
       <Text style={styles.title}>Customer Service</Text>
@@ -28,7 +28,7 @@ export default function Help() {
           onPress={() => openLink('mailto:israelabaefah2005@gmail.com')}
           style={styles.iconBox}
         >
-          <Entypo name="email" size={30} color="#800080" />
+          <Entypo name="email" size={30} color={colors.accent} />
           <Text style={styles.iconLabel}>Email</Text>
         </TouchableOpacity>
 
@@ -37,7 +37,7 @@ export default function Help() {
           onPress={() => openLink('tel:+233549308770')}
           style={styles.iconBox}
         >
-          <FontAwesome name="phone" size={28} color="#800080" />
+          <FontAwesome name="phone" size={28} color={colors.accent} />
           <Text style={styles.iconLabel}>Call</Text>
         </TouchableOpacity>
 
@@ -54,12 +54,12 @@ export default function Help() {
   );
 }
 
-const getStyles = (isDarkMode) =>
+const getStyles = (colors) =>
   StyleSheet.create({
     container: {
       flex: 1,
       padding: 20,
-      backgroundColor: isDarkMode ? '#000' : '#fff',
+      backgroundColor: colors.background,
     },
     backButton: {
       marginBottom: 10,
@@ -68,11 +68,11 @@ const getStyles = (isDarkMode) =>
       fontSize: 20,
       fontWeight: 'bold',
       marginBottom: 15,
-      color: isDarkMode ? '#fff' : '#800080',
+      color: colors.textPrimary,
     },
     text: {
       fontSize: 16,
-      color: isDarkMode ? '#ccc' : '#333',
+      color: colors.textMuted,
       marginBottom: 20,
     },
     iconRow: {
@@ -85,7 +85,7 @@ const getStyles = (isDarkMode) =>
     },
     iconLabel: {
       marginTop: 5,
-      color: isDarkMode ? '#ccc' : '#333',
+      color: colors.textMuted,
       fontSize: 12,
     },
   });

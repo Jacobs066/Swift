@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
-  Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -13,37 +11,37 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../context/WalletContext';
-
-const mobileWallets = [
-  {
-    name: 'MTN Mobile Money',
-    value: 'MTN',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/8/88/MTN_Logo.svg'
-  },
-  {
-    name: 'Telecel Cash',
-    value: 'Telecel',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/5/58/Telecel_logo_2024.svg'
-  },
-  {
-    name: 'AirtelTigo Money',
-    value: 'AirtelTigo',
-    logo: 'https://seeklogo.com/images/A/airteltigo-logo-1DB0B75CD3-seeklogo.com.png'
-  }
-];
+import { getBanks } from '../utils/api';
+import TextInput from '../components/TextInput';
+import Button from '../components/Button';
 
 const SendToMobileWalletScreen = () => {
-  const { sendOrWithdraw, balances } = useWallet();
-  const [selectedWallet, setSelectedWallet] = useState('');
+  const { send, balances } = useWallet();
+  const [providers, setProviders] = useState([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+  const [selectedProvider, setSelectedProvider] = useState(null);
   const [walletNumber, setWalletNumber] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [amount, setAmount] = useState('');
   const [processing, setProcessing] = useState(false);
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
+
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        setLoadingProviders(true);
+        const response = await getBanks('mobile_money');
+        setProviders(response.banks || []);
+      } finally {
+        setLoadingProviders(false);
+      }
+    };
+    loadProviders();
+  }, []);
 
   const validateForm = () => {
-    if (!selectedWallet) {
+    if (!selectedProvider) {
       Alert.alert('Error', 'Please select a mobile network');
       return false;
     }
@@ -66,17 +64,31 @@ const SendToMobileWalletScreen = () => {
     return true;
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!validateForm()) return;
 
     try {
       setProcessing(true);
-      
-      sendOrWithdraw(Number(amount));
-      
-      Alert.alert('Send Successful', `₵${amount} has been sent from your GHS wallet!`);
-      router.push('/screens/HomeScreen');
 
+      const response = await send(Number(amount), 'mobile_money', {
+        fullName: recipientName,
+        accountNumber: walletNumber,
+        bankCode: selectedProvider.code,
+      });
+
+      if (response.success) {
+        router.push({
+          pathname: '/screens/SendSuccess',
+          params: {
+            amount: `GHS ${amount}`,
+            recipient: recipientName,
+            method: selectedProvider.name,
+            reference: response.paystackResponse?.data?.reference || '',
+          },
+        });
+      } else {
+        Alert.alert('Error', response.message || 'Failed to send money');
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to send money: ' + error.toString());
     } finally {
@@ -85,114 +97,84 @@ const SendToMobileWalletScreen = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Back Arrow */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back-circle" size={36} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={36} color={colors.accent} />
       </TouchableOpacity>
 
-      <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#800080' }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
         Send to Mobile Wallet
       </Text>
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>
+      <Text style={[styles.label, { color: colors.textMuted }]}>
         Choose Mobile Network
       </Text>
 
-      <View style={styles.walletRow}>
-        {mobileWallets.map((wallet) => (
-          <TouchableOpacity
-            key={wallet.value}
-            style={[
-              styles.walletCard,
-              selectedWallet === wallet.value && styles.walletCardSelected
-            ]}
-            onPress={() => setSelectedWallet(wallet.value)}
-          >
-            <Image source={{ uri: wallet.logo }} style={styles.walletLogo} />
-            <Text
+      {loadingProviders ? (
+        <ActivityIndicator size="small" color={colors.accent} style={{ marginBottom: 20 }} />
+      ) : (
+        <View style={styles.walletRow}>
+          {providers.map((provider) => (
+            <TouchableOpacity
+              key={provider.code}
               style={[
-                styles.walletText,
-                { color: selectedWallet === wallet.value ? '#fff' : '#800080' }
+                styles.walletCard,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+                selectedProvider?.code === provider.code && { backgroundColor: colors.accent, borderColor: colors.accent }
               ]}
+              onPress={() => setSelectedProvider(provider)}
             >
-              {wallet.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Ionicons
+                name="phone-portrait-outline"
+                size={24}
+                color={selectedProvider?.code === provider.code ? colors.accentText : colors.accent}
+                style={{ marginBottom: 6 }}
+              />
+              <Text
+                style={[
+                  styles.walletText,
+                  { color: selectedProvider?.code === provider.code ? colors.accentText : colors.textPrimary }
+                ]}
+              >
+                {provider.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>
-        Wallet Number
-      </Text>
       <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-            color: isDarkMode ? '#fff' : '#000'
-          }
-        ]}
+        label="Wallet Number"
         placeholder="Enter wallet number"
-        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
         keyboardType="numeric"
         value={walletNumber}
         onChangeText={setWalletNumber}
         maxLength={10}
       />
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>
-        Recipient Name
-      </Text>
       <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-            color: isDarkMode ? '#fff' : '#000'
-          }
-        ]}
+        label="Recipient Name"
         placeholder="Enter recipient name"
-        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
         value={recipientName}
         onChangeText={setRecipientName}
       />
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>
-        Amount
-      </Text>
       <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-            color: isDarkMode ? '#fff' : '#000'
-          }
-        ]}
+        label="Amount"
         placeholder="Enter amount"
-        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
         keyboardType="numeric"
         value={amount}
         onChangeText={setAmount}
       />
 
-      <TouchableOpacity
-        style={[
-          styles.sendButton,
-          {
-            backgroundColor:
-              selectedWallet && walletNumber && recipientName && amount && !processing ? '#800080' : '#ccc'
-          }
-        ]}
+      <Button
+        title="Send"
         onPress={handleSend}
-        disabled={!selectedWallet || !walletNumber || !recipientName || !amount || processing}
-      >
-        {processing ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-        <Text style={styles.sendText}>Send</Text>
-        )}
-      </TouchableOpacity>
+        loading={processing}
+        disabled={!selectedProvider || !walletNumber || !recipientName || !amount}
+        style={{ marginTop: 10 }}
+      />
     </View>
   );
 };
@@ -228,42 +210,14 @@ const styles = StyleSheet.create({
   },
   walletCard: {
     borderWidth: 1,
-    borderColor: '#800080',
     borderRadius: 10,
     padding: 10,
     alignItems: 'center',
     width: 100
-  },
-  walletCardSelected: {
-    backgroundColor: '#800080'
-  },
-  walletLogo: {
-    width: 40,
-    height: 40,
-    resizeMode: 'contain',
-    marginBottom: 6
   },
   walletText: {
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '600'
   },
-  input: {
-    height: 50,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    marginBottom: 20
-  },
-  sendButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10
-  },
-  sendText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16
-  }
 });

@@ -3,16 +3,18 @@ package com.swift.auth.service;
 import com.swift.auth.dto.SignupRequest;
 import com.swift.auth.models.User;
 import com.swift.auth.repository.UserRepository;
+import com.swift.mobileappdemo.MobileappdemoApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(classes = MobileappdemoApplication.class)
 @ActiveProfiles("test")
 @Transactional
 public class AuthServiceTest {
@@ -22,6 +24,9 @@ public class AuthServiceTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Test
     public void testSuccessfulSignup() {
@@ -50,7 +55,8 @@ public class AuthServiceTest {
         assertEquals("testuser", createdUser.getUsername());
         assertEquals("Test", createdUser.getFirstName());
         assertEquals("User", createdUser.getLastName());
-        assertEquals("TestPass123", createdUser.getPassword()); // Plain text password
+        assertNotEquals("TestPass123", createdUser.getPassword()); // Password must be hashed, not stored as-is
+        assertTrue(passwordEncoder.matches("TestPass123", createdUser.getPassword()));
     }
 
     @Test

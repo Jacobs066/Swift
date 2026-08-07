@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView
@@ -15,30 +12,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login } from '../utils/api';
-import { useTranslation } from 'react-i18next';
-import { useColorScheme } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useProfile } from '../context/ProfileContext';
+import Button from '../components/Button';
+import TextInput from '../components/TextInput';
 
 const LoginScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const { setIsNewUser } = useProfile();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '', api: '' });
   const [loading, setLoading] = useState(false);
-
-  const colors = {
-    background: isDarkMode ? '#121212' : '#fff',
-    text: isDarkMode ? '#fff' : '#000',
-    primary: '#800080',
-    inputBg: isDarkMode ? '#1E1E1E' : '#fff',
-    border: '#800080',
-    placeholder: isDarkMode ? '#aaa' : '#666',
-  };
 
   const handleLogin = async () => {
     let hasError = false;
@@ -94,16 +81,16 @@ const LoginScreen = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <TouchableOpacity style={styles.backArrow} onPress={() => router.push('onboarding')}>
-          <Ionicons name="arrow-back-circle" size={24} color={colors.primary} />
+          <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
         </TouchableOpacity>
 
-        <Text style={[styles.header, { color: colors.primary }]}>Welcome back</Text>
+        <Text style={[typography.title, { color: colors.textPrimary, marginTop: spacing.md, marginBottom: spacing.md }]}>
+          Welcome back
+        </Text>
 
-        <Text style={[styles.label, { color: colors.primary }]}>Email address</Text>
         <TextInput
-          style={[styles.input, { borderColor: colors.border, backgroundColor: colors.inputBg, color: colors.text }]}
+          label="Email address"
           placeholder="Enter your email"
-          placeholderTextColor={colors.placeholder}
           keyboardType="email-address"
           value={email}
           onChangeText={text => {
@@ -111,55 +98,39 @@ const LoginScreen = () => {
             if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
           }}
           autoCapitalize="none"
+          error={errors.email}
         />
-        {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
-        <Text style={[styles.label, { color: colors.primary }]}>Password</Text>
-        <View style={[styles.passwordContainer, { borderColor: colors.border, backgroundColor: colors.inputBg }]}>
-          <TextInput
-            style={[styles.passwordInput, { color: colors.text }]}
-            placeholder="Enter your password"
-            placeholderTextColor={colors.placeholder}
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={text => {
-              setPassword(text);
-              if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
-            }}
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={22}
-              color={colors.primary}
-            />
-          </TouchableOpacity>
-        </View>
-        {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+        <TextInput
+          label="Password"
+          placeholder="Enter your password"
+          secureTextEntry
+          value={password}
+          onChangeText={text => {
+            setPassword(text);
+            if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
+          }}
+          error={errors.password}
+        />
 
         <TouchableOpacity>
-          <Text style={[styles.forgotPassword, { color: colors.primary }]}>Forgot password?</Text>
+          <Text style={[styles.forgotPassword, { color: colors.accent }]}>Forgot password?</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.loginButton, { backgroundColor: colors.primary }]} onPress={handleLogin} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.loginText}>Log in</Text>
-          )}
-        </TouchableOpacity>
-        {errors.api ? <Text style={styles.errorText}>{errors.api}</Text> : null}
+        <Button title="Log in" onPress={handleLogin} loading={loading} style={{ marginTop: spacing.md }} />
+        {errors.api ? <Text style={[styles.errorText, { color: colors.error }]}>{errors.api}</Text> : null}
 
-        <Text style={[styles.orText, { color: colors.placeholder }]}>or</Text>
+        <Text style={[styles.orText, { color: colors.textMuted }]}>or</Text>
 
-        <TouchableOpacity style={[styles.socialButton, { borderColor: colors.primary }]}>
-          <Text style={[styles.altButtonText, { color: colors.primary }]}>Continue with Google</Text>
-          <Ionicons name="logo-google" size={22} color={colors.primary} />
-        </TouchableOpacity>
+        <Button
+          title="Continue with Google"
+          variant="secondary"
+          onPress={() => {}}
+        />
 
-        <Text style={[styles.signupPrompt, { color: colors.placeholder }]}>
+        <Text style={[styles.signupPrompt, { color: colors.textMuted }]}>
           Need a profile?{' '}
-          <Text style={[styles.signupLink, { color: colors.primary }]} onPress={() => router.push('/screens/SignUpScreen')}>
+          <Text style={[styles.signupLink, { color: colors.accent }]} onPress={() => router.push('/screens/SignUpScreen')}>
             Sign up
           </Text>
         </Text>
@@ -182,70 +153,13 @@ const styles = StyleSheet.create({
   backArrow: {
     marginTop: 20,
   },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  label: {
-    fontWeight: 'bold',
-    marginTop: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 6,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 6,
-    justifyContent: 'space-between',
-  },
-  passwordInput: {
-    flex: 1,
-  },
   forgotPassword: {
     marginTop: 10,
     fontWeight: 'bold',
   },
-  loginButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  loginText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
   orText: {
     textAlign: 'center',
     marginVertical: 16,
-  },
-  socialButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 16,
-  },
-  altButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  icon: {
-    width: 24,
-    height: 24,
   },
   signupPrompt: {
     textAlign: 'center',
@@ -256,9 +170,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   errorText: {
-    color: 'red',
     fontSize: 12,
-    marginTop: 2,
-    marginBottom: 2,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });

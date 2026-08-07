@@ -5,14 +5,14 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  useColorScheme,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { verifyOTP, resendOTP } from '../utils/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 const OTPVerificationScreen = () => {
   const router = useRouter();
@@ -23,8 +23,8 @@ const OTPVerificationScreen = () => {
   const [timer, setTimer] = useState(60);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors, radius, spacing } = useTheme();
+  const { login } = useAuth();
 
   const phoneNumber = params.phoneNumber || '';
   const purpose = params.purpose || 'verification';
@@ -41,7 +41,7 @@ const OTPVerificationScreen = () => {
       const newOtp = [...otp];
       newOtp[index] = text;
       setOtp(newOtp);
-      
+
       // Auto-focus to next input
       if (index < 5) {
         inputRefs.current[index + 1]?.focus();
@@ -56,7 +56,7 @@ const OTPVerificationScreen = () => {
       const newOtp = [...otp];
       newOtp[index] = '';
       setOtp(newOtp);
-      
+
       // Focus previous input on backspace
       if (index > 0) {
         inputRefs.current[index - 1]?.focus();
@@ -73,21 +73,12 @@ const OTPVerificationScreen = () => {
     try {
       setLoading(true);
       const response = await verifyOTP(phoneNumber, otpCode);
-      
-      // Store verification token if provided
-      if (response.token) {
-        await AsyncStorage.setItem('verificationToken', response.token);
-      }
-      
-      // For regular login, get user data from navigation params
-      if (purpose === 'login' || purpose === 'signup') {
-        const userData = await AsyncStorage.getItem('tempUserData');
-        if (userData) {
-          const user = JSON.parse(userData);
-          await AsyncStorage.setItem('token', user.token);
-          await AsyncStorage.setItem('userData', JSON.stringify(user));
-          await AsyncStorage.setItem('lastLoginEmail', user.email || user.emailOrPhone);
-        }
+
+      // The backend issues the session token here, once OTP is verified -
+      // persist it via AuthContext rather than relying on a value from an
+      // earlier screen.
+      if ((purpose === 'login' || purpose === 'signup') && response.token) {
+        await login(response.token, response.user);
       }
 
       // Navigate to home screen
@@ -97,9 +88,9 @@ const OTPVerificationScreen = () => {
         // For other purposes, go back to previous screen
         router.push('/screens/HomeScreen');
       }
-      
+
       Alert.alert(
-        t('success'), 
+        t('success'),
         t('otpVerificationSuccess') || 'OTP verified successfully!',
         [
           {
@@ -150,16 +141,14 @@ const OTPVerificationScreen = () => {
     return phone;
   };
 
-  const styles = getStyles(isDark);
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.infoText}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.infoText, { color: colors.textMuted }]}>
         {t('otpInfoText') || 'Please enter the code that was sent to'}{'\n'}
-        <Text style={styles.bold}>{formatPhoneNumber(phoneNumber)}</Text>
+        <Text style={[styles.bold, { color: colors.textPrimary }]}>{formatPhoneNumber(phoneNumber)}</Text>
       </Text>
 
-      <Text style={styles.label}>{t('enterCode') || 'Enter Code'}</Text>
+      <Text style={[styles.label, { color: colors.textPrimary }]}>{t('enterCode') || 'Enter Code'}</Text>
       <View style={styles.otpContainer}>
         {otp.map((digit, index) => (
           <TextInput
@@ -167,14 +156,19 @@ const OTPVerificationScreen = () => {
             ref={(ref) => (inputRefs.current[index] = ref)}
             style={[
               styles.otpInput,
-              digit && styles.filledInput,
+              {
+                borderColor: colors.accent,
+                borderRadius: radius.md,
+                backgroundColor: digit ? colors.accent : colors.surface,
+                color: digit ? colors.accentText : colors.textPrimary,
+              },
             ]}
             keyboardType="numeric"
             maxLength={1}
             value={digit}
             onChangeText={(text) => handleChange(text, index)}
             placeholder="-"
-            placeholderTextColor={isDark ? '#aaa' : '#999'}
+            placeholderTextColor={colors.textMuted}
             editable={!loading}
           />
         ))}
@@ -182,8 +176,8 @@ const OTPVerificationScreen = () => {
 
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#800080" />
-          <Text style={styles.loadingText}>{t('verifying') || 'Verifying...'}</Text>
+          <ActivityIndicator size="small" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.textPrimary }]}>{t('verifying') || 'Verifying...'}</Text>
         </View>
       )}
 
@@ -193,10 +187,10 @@ const OTPVerificationScreen = () => {
         style={[styles.resend, resending && styles.disabledResend]}
       >
         {resending ? (
-          <ActivityIndicator size="small" color="#800080" />
+          <ActivityIndicator size="small" color={colors.accent} />
         ) : (
-          <Text style={styles.resendText}>
-            {timer === 0 
+          <Text style={[styles.resendText, { color: colors.accent }]}>
+            {timer === 0
               ? (t('sendAnotherCode') || 'Send another code')
               : `${t('sendAnotherCode') || 'Send another code'} (${timer}s)`
             }
@@ -208,7 +202,7 @@ const OTPVerificationScreen = () => {
         style={styles.backButton}
         onPress={() => router.back()}
       >
-        <Text style={styles.backButtonText}>{t('back') || 'Back'}</Text>
+        <Text style={[styles.backButtonText, { color: colors.textPrimary }]}>{t('back') || 'Back'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -216,83 +210,67 @@ const OTPVerificationScreen = () => {
 
 export default OTPVerificationScreen;
 
-const getStyles = (isDark) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: isDark ? '#121212' : '#fff',
-      padding: 24,
-      justifyContent: 'center',
-    },
-    infoText: {
-      textAlign: 'center',
-      color: isDark ? '#fff' : '#800080',
-      fontSize: 16,
-      marginBottom: 30,
-    },
-    bold: {
-      fontWeight: 'bold',
-      color: isDark ? '#fff' : '#800080',
-    },
-    label: {
-      textAlign: 'center',
-      fontSize: 16,
-      color: isDark ? '#fff' : '#800080',
-      marginBottom: 12,
-      fontWeight: 'bold',
-    },
-    otpContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-evenly',
-      marginBottom: 24,
-    },
-    otpInput: {
-      borderWidth: 2,
-      borderColor: '#800080',
-      borderRadius: 10,
-      width: 45,
-      height: 55,
-      textAlign: 'center',
-      fontSize: 18,
-      color: isDark ? '#fff' : '#800080',
-      backgroundColor: isDark ? '#1e1e1e' : '#fff',
-    },
-    filledInput: {
-      backgroundColor: '#800080',
-      color: '#fff',
-    },
-    loadingContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 20,
-    },
-    loadingText: {
-      marginLeft: 10,
-      color: isDark ? '#fff' : '#800080',
-      fontSize: 14,
-    },
-    resend: {
-      alignSelf: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-    },
-    disabledResend: {
-      opacity: 0.5,
-    },
-    resendText: {
-      color: '#800080',
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-    backButton: {
-      alignSelf: 'center',
-      marginTop: 20,
-      paddingVertical: 10,
-      paddingHorizontal: 20,
-    },
-    backButtonText: {
-      color: isDark ? '#fff' : '#800080',
-      fontSize: 16,
-    },
-  });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
+  infoText: {
+    textAlign: 'center',
+    fontSize: 16,
+    marginBottom: 30,
+  },
+  bold: {
+    fontWeight: 'bold',
+  },
+  label: {
+    textAlign: 'center',
+    fontSize: 16,
+    marginBottom: 12,
+    fontWeight: 'bold',
+  },
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    marginBottom: 24,
+  },
+  otpInput: {
+    borderWidth: 2,
+    width: 45,
+    height: 55,
+    textAlign: 'center',
+    fontSize: 18,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+  },
+  resend: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  disabledResend: {
+    opacity: 0.5,
+  },
+  resendText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  backButton: {
+    alignSelf: 'center',
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  backButtonText: {
+    fontSize: 16,
+  },
+});

@@ -3,6 +3,8 @@ package com.swift.wallet.models;
 import com.swift.wallet.enums.CurrencyType;
 import com.swift.wallet.enums.TransactionType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -18,6 +20,7 @@ public class Transaction {
     private Wallet wallet;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false)
     private TransactionType type;
 
@@ -25,6 +28,7 @@ public class Transaction {
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false)
     private CurrencyType currency;
 
@@ -35,6 +39,7 @@ public class Transaction {
     private BigDecimal convertedAmount;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     private CurrencyType convertedCurrency;
 
     @Column(length = 500)

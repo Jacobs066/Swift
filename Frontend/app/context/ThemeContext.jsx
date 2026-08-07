@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { light, dark, spacing, radius, typography } from '../theme/tokens';
 
 const ThemeContext = createContext();
 
@@ -41,8 +42,11 @@ export const ThemeProvider = ({ children }) => {
     await AsyncStorage.setItem('theme', newTheme);
   };
 
+  const isDarkMode = theme === 'dark';
+  const colors = isDarkMode ? dark : light;
+
   return (
-    <ThemeContext.Provider value={{ theme, isDarkMode: theme === 'dark', toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme, colors, spacing, radius, typography }}>
       {children}
     </ThemeContext.Provider>
   );

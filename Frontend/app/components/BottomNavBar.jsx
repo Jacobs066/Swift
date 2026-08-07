@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../context/ThemeContext';
 
 const shadow = Platform.select({
   ios: {
@@ -24,9 +25,10 @@ const TABS = [
 
 const BottomNavBar = () => {
   const router = useRouter();
+  const { colors, radius } = useTheme();
 
   return (
-    <View style={[styles.fabBar, { backgroundColor: '#d6bde1ff' }]}> 
+    <View style={[styles.fabBar, { backgroundColor: colors.surface, borderRadius: radius.pill, borderColor: colors.border }, shadow]}>
       {TABS.map(tab => {
         return (
           <TouchableOpacity
@@ -38,9 +40,9 @@ const BottomNavBar = () => {
             activeOpacity={0.8}
           >
             <Animated.View>
-              <Ionicons name={tab.name} size={22} color="#800080" />
+              <Ionicons name={tab.name} size={22} color={colors.accent} />
             </Animated.View>
-            <Text style={styles.tabText}>{tab.label}</Text>
+            <Text style={[styles.tabText, { color: colors.accent }]}>{tab.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -57,8 +59,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 28,
-    ...shadow,
+    borderWidth: StyleSheet.hairlineWidth,
     zIndex: 100,
   },
   tab: {
@@ -70,9 +71,8 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 11,
-    color: '#800080',
     marginTop: 2,
   },
 });
 
-export default BottomNavBar; 
+export default BottomNavBar;

@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication(scanBasePackages = {"com.swift"})
-@EntityScan(basePackages = {"com.swift.auth.models", "com.swift.wallet.models"})
-@EnableJpaRepositories(basePackages = {"com.swift.auth.repository", "com.swift.wallet.repository"})
+@EntityScan(basePackages = {"com.swift.auth.models", "com.swift.wallet.models", "com.swift.notification.models"})
+@EnableJpaRepositories(basePackages = {"com.swift.auth.repository", "com.swift.wallet.repository", "com.swift.notification.repository"})
 public class MobileappdemoApplication {
 
 	public static void main(String[] args) {

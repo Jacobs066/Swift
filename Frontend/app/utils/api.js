@@ -1,16 +1,38 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Set your backend API base URL here
-// For real devices: Change this to your computer's IP address
-// Find your IP with: ipconfig (Windows) or ifconfig (Mac/Linux)
-// Example: 'http://192.168.1.100:8082'
-export const API_URL = 'http://192.168.137.1:8082';
+// Backend base URL - configurable per environment via app.json's `extra.apiUrl`,
+// so switching machines/networks doesn't require a code change.
+export const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8082';
+
+const client = axios.create({ baseURL: API_URL });
+
+// Attach the auth token to every request uniformly.
+client.interceptors.request.use(async (config) => {
+  const token = await AsyncStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// On a 401, the stored token is no longer valid - clear it so the app treats
+// the user as logged out rather than silently failing every subsequent call.
+client.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      await AsyncStorage.multiRemove(['token', 'userData']);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // AUTH
 const login = async (emailOrPhone, password) => {
   try {
-    const response = await axios.post(`${API_URL}/api/auth/login`, {
+    const response = await client.post('/api/auth/login', {
       emailOrPhone,
       password,
     });
@@ -22,12 +44,17 @@ const login = async (emailOrPhone, password) => {
 
 const signup = async (username, fullName, email, phoneNumber, password) => {
   try {
-    const response = await axios.post(`${API_URL}/api/auth/signup`, {
+    // Backend requires both first and last name; the UI only collects one field.
+    const nameParts = fullName.trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : nameParts[0];
+    const response = await client.post('/api/auth/signup', {
       emailOrPhone: email,
       username,
       password,
       confirmPassword: password,
-      firstName: fullName
+      firstName,
+      lastName
     });
     return response.data;
   } catch (error) {
@@ -38,47 +65,48 @@ const signup = async (username, fullName, email, phoneNumber, password) => {
 // USER PROFILE
 const getUserProfile = async () => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/user/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await client.get('/api/user/profile');
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || 'Failed to fetch user profile';
   }
 };
 
+const changePassword = async (currentPassword, newPassword, confirmNewPassword) => {
+  try {
+    const response = await client.put('/api/user/password', {
+      currentPassword,
+      newPassword,
+      confirmNewPassword,
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.message || 'Failed to change password';
+  }
+};
+
 // WALLETS
 const getAccountBalance = async () => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/wallets/balances?userId=1`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await client.get('/api/wallets/balances');
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || 'Failed to fetch account balance';
   }
 };
 
-const createWalletsForUser = async (userId) => {
+const createWalletsForUser = async () => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.post(`${API_URL}/api/wallets/wallets/ensure?userId=${userId}`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await client.post('/api/wallets/wallets/ensure');
     return response.data;
   } catch (error) {
     return { success: false, message: error.response?.data?.message || 'Failed to create wallets' };
   }
 };
 
-const getUserWallets = async (userId = 1) => {
+const getUserWallets = async () => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/wallets/wallets?userId=${userId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await client.get('/api/wallets/wallets');
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || 'Failed to fetch user wallets';
@@ -86,26 +114,22 @@ const getUserWallets = async (userId = 1) => {
 };
 
 // DEPOSIT
-const getDepositMethods = async () => {
-  try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/deposit/methods`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
-  } catch (error) {
-    return { methods: [] };
-  }
-};
+// Static, client-side list - these are UI options, not backend data.
+const getDepositMethods = async () => ({
+  methods: [
+    { id: 'mobile_money', name: 'Mobile Money', description: 'Deposit via Mobile Money', icon: 'phone-portrait-outline', enabled: true },
+    { id: 'bank', name: 'Bank Transfer', description: 'Deposit via Bank Transfer', icon: 'business-outline', enabled: true },
+    { id: 'card', name: 'Debit/Credit Card', description: 'Deposit via Card', icon: 'card-outline', enabled: true },
+  ],
+});
 
 const initiateDeposit = async (method, amount, depositData) => {
   try {
-    const response = await axios.post(`${API_URL}/api/deposit/initiate`, {
+    const response = await client.post('/api/wallets/deposit', {
       method,
       amount,
       email: depositData.email,
       reference: depositData.reference,
-      userId: 1
     });
     return response.data;
   } catch (error) {
@@ -113,29 +137,35 @@ const initiateDeposit = async (method, amount, depositData) => {
   }
 };
 
-// WITHDRAW
-const getWithdrawMethods = async () => {
+const verifyDeposit = async (reference, amount) => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/withdraw/methods`, {
-      headers: { Authorization: `Bearer ${token}` }
+    const response = await client.post('/api/wallets/deposit/verify', {
+      reference,
+      amount,
     });
     return response.data;
   } catch (error) {
-    return { methods: [] };
+    throw error.response?.data?.message || 'Failed to verify deposit';
   }
 };
 
+// WITHDRAW
+const getWithdrawMethods = async () => ({
+  methods: [
+    { id: 'mobile_money', name: 'Mobile Money', description: 'Withdraw to Mobile Money', icon: 'phone-portrait-outline', enabled: true },
+    { id: 'bank', name: 'Bank Transfer', description: 'Withdraw to Bank Account', icon: 'business-outline', enabled: true },
+  ],
+});
+
 const initiateWithdraw = async (method, amount, recipientDetails) => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.post(`${API_URL}/api/withdraw/initiate`, {
-      method,
+    const response = await client.post('/api/wallets/withdraw', {
+      reason: `Withdrawal via ${method}`,
       amount,
-      recipientDetails,
-      userId: 1
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
+      name: recipientDetails?.fullName,
+      accountNumber: recipientDetails?.accountNumber || recipientDetails?.phoneNumber,
+      bankCode: recipientDetails?.bankCode || (method === 'mobile_money' ? 'MPS' : undefined),
+      recipientCode: recipientDetails?.recipientCode,
     });
     return response.data;
   } catch (error) {
@@ -144,28 +174,22 @@ const initiateWithdraw = async (method, amount, recipientDetails) => {
 };
 
 // SEND
-const getSendMethods = async () => {
-  try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/send/methods`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
-  } catch (error) {
-    return { methods: [] };
-  }
-};
+const getSendMethods = async () => ({
+  methods: [
+    { id: 'bank', name: 'Bank Transfer', description: 'Send to Bank Account', icon: 'bank', enabled: true },
+    { id: 'mobile_money', name: 'Mobile Money', description: 'Send to Mobile Money', icon: 'mobile', enabled: true },
+  ],
+});
 
 const initiateSend = async (method, amount, recipientDetails) => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.post(`${API_URL}/api/send/initiate`, {
-      method,
+    const response = await client.post('/api/wallets/send', {
+      reason: `Send via ${method}`,
       amount,
-      recipientDetails,
-      userId: 1
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
+      name: recipientDetails?.fullName || recipientDetails?.accountName,
+      accountNumber: recipientDetails?.accountNumber || recipientDetails?.phoneNumber,
+      bankCode: recipientDetails?.bankCode || (method === 'mobile_money' ? 'MPS' : undefined),
+      recipientCode: recipientDetails?.recipientCode,
     });
     return response.data;
   } catch (error) {
@@ -173,13 +197,20 @@ const initiateSend = async (method, amount, recipientDetails) => {
   }
 };
 
-// TRANSFER (INTERWALLET)
+// BANKS / MOBILE MONEY PROVIDERS
+const getBanks = async (type) => {
+  try {
+    const response = await client.get('/api/wallets/banks', { params: type ? { type } : {} });
+    return response.data;
+  } catch (error) {
+    return { success: false, banks: [] };
+  }
+};
+
+// TRANSFER (INTERWALLET) & RATES
 const getTransferRates = async () => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/transfer/rates`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await client.get('/api/wallets/rates');
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || 'Failed to fetch transfer rates';
@@ -188,15 +219,11 @@ const getTransferRates = async () => {
 
 const performInterwalletTransfer = async (fromCurrency, toCurrency, amount, description = 'Interwallet transfer') => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.post(`${API_URL}/api/wallets/interwallet`, {
+    const response = await client.post('/api/wallets/interwallet', {
       fromCurrency,
       toCurrency,
       amount,
-      userId: 1,
       description,
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
     });
     return response.data;
   } catch (error) {
@@ -205,22 +232,37 @@ const performInterwalletTransfer = async (fromCurrency, toCurrency, amount, desc
 };
 
 // TRANSACTIONS
-const getRecentTransactions = async () => {
+const getRecentTransactions = async (userId, limit = 5) => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/transactions/recent?userId=1&limit=5`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await client.get(`/api/transactions/recent/${userId}`, { params: { limit } });
     return response.data;
   } catch (error) {
     return [];
   }
 };
 
+const getTransactionSummary = async (userId) => {
+  try {
+    const response = await client.get(`/api/transactions/summary/${userId}`);
+    return response.data;
+  } catch (error) {
+    return { totalTransactions: 0, totalDeposits: 0, totalWithdrawals: 0 };
+  }
+};
+
+const getTransactionById = async (transactionId) => {
+  try {
+    const response = await client.get(`/api/transactions/${transactionId}`);
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
 const getTransactionHistory = async (userId, filters = {}) => {
   try {
-    const params = new URLSearchParams({
-      userId: userId.toString(),
+    const params = {
+      userId,
       page: filters.page || 0,
       size: filters.size || 20,
       sortBy: filters.sortBy || 'createdAt',
@@ -230,8 +272,8 @@ const getTransactionHistory = async (userId, filters = {}) => {
       ...(filters.status && { status: filters.status }),
       ...(filters.startDate && { startDate: filters.startDate }),
       ...(filters.endDate && { endDate: filters.endDate }),
-    });
-    const response = await axios.get(`${API_URL}/api/transactions/history?${params}`);
+    };
+    const response = await client.get('/api/transactions/history', { params });
     return response.data;
   } catch (error) {
     return {
@@ -248,7 +290,7 @@ const getTransactionHistory = async (userId, filters = {}) => {
 // OTP FUNCTIONS
 const sendOTP = async (phoneNumber, purpose = 'verification') => {
   try {
-    const response = await axios.post(`${API_URL}/api/auth/send-otp`, {
+    const response = await client.post('/api/auth/send-otp', {
       phoneNumber,
       purpose,
     });
@@ -260,7 +302,7 @@ const sendOTP = async (phoneNumber, purpose = 'verification') => {
 
 const verifyOTP = async (phoneNumber, otpCode) => {
   try {
-    const response = await axios.post(`${API_URL}/api/auth/verify-otp`, {
+    const response = await client.post('/api/auth/verify-otp', {
       email: phoneNumber, // Backend expects 'email' field
       otp: otpCode,       // Backend expects 'otp' field
     });
@@ -272,7 +314,7 @@ const verifyOTP = async (phoneNumber, otpCode) => {
 
 const resendOTP = async (phoneNumber, purpose = 'verification') => {
   try {
-    const response = await axios.post(`${API_URL}/api/auth/resend-otp`, {
+    const response = await client.post('/api/auth/resend-otp', {
       phoneNumber,
       purpose,
     });
@@ -284,10 +326,7 @@ const resendOTP = async (phoneNumber, purpose = 'verification') => {
 
 const getActivityLogs = async () => {
   try {
-    const token = await AsyncStorage.getItem('token');
-    const response = await axios.get(`${API_URL}/api/user/activity-logs`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await client.get('/api/user/activity-logs');
     if (response.data && response.data.success && response.data.logs) {
       return response.data.logs;
     }
@@ -297,27 +336,72 @@ const getActivityLogs = async () => {
   }
 };
 
+// NOTIFICATIONS
+const getNotifications = async () => {
+  try {
+    const response = await client.get('/api/notifications');
+    return response.data;
+  } catch (error) {
+    return { success: true, notifications: [] };
+  }
+};
+
+const markNotificationAsRead = async (id) => {
+  try {
+    const response = await client.put(`/api/notifications/${id}/read`);
+    return response.data;
+  } catch (error) {
+    return { success: false };
+  }
+};
+
+const markAllNotificationsAsRead = async () => {
+  try {
+    const response = await client.put('/api/notifications/read-all');
+    return response.data;
+  } catch (error) {
+    return { success: false };
+  }
+};
+
+const deleteNotification = async (id) => {
+  try {
+    const response = await client.delete(`/api/notifications/${id}`);
+    return response.data;
+  } catch (error) {
+    return { success: false };
+  }
+};
+
 // Export all functions
 export {
   login,
   signup,
   getUserProfile,
+  changePassword,
   getAccountBalance,
   createWalletsForUser,
   getUserWallets,
   getDepositMethods,
   initiateDeposit,
+  verifyDeposit,
   getWithdrawMethods,
   initiateWithdraw,
   getSendMethods,
   initiateSend,
+  getBanks,
   getTransferRates,
   performInterwalletTransfer,
   getRecentTransactions,
   getTransactionHistory,
+  getTransactionSummary,
+  getTransactionById,
   sendOTP,
   verifyOTP,
   resendOTP,
-  getActivityLogs
-  // ...add any other functions you need
+  getActivityLogs,
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification
 };

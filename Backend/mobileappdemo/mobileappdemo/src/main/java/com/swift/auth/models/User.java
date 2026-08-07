@@ -1,5 +1,6 @@
 package com.swift.auth.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.swift.auth.enums.AuthProvider;
 import com.swift.wallet.models.Wallet;
 import jakarta.persistence.*;
@@ -28,6 +29,7 @@ public class User {
 
     @NotBlank(message = "Password is required")
     @Size(min = 8, message = "Password must be at least 8 characters")
+    @JsonIgnore
     private String password;
 
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -48,6 +50,10 @@ public class User {
     
     @Size(max = 100, message = "Last name must not exceed 100 characters")
     private String lastName;
+
+    private LocalDateTime updatedAt;
+    private boolean isActive = true;
+    private LocalDateTime lastLoginAt;
 
     // Getters and setters
     public Long getId() { return id; }
@@ -79,7 +85,17 @@ public class User {
 
     public String getLastName() { return lastName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
-    
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { isActive = active; }
+
+    public LocalDateTime getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+
+
     public String getFullName() {
         if (firstName != null && lastName != null) {
             return firstName + " " + lastName;

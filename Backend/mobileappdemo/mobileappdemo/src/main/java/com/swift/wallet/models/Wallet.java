@@ -3,6 +3,8 @@ package com.swift.wallet.models;
 import com.swift.auth.models.User;
 import com.swift.wallet.enums.CurrencyType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ public class Wallet {
     private User user;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false)
     private CurrencyType currency;
 

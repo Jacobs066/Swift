@@ -15,9 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getUserProfile, getAccountBalance, getRecentTransactions, getActivityLogs, getNotifications, createWalletsForUser } from '../utils/api';
+import { getUserProfile, getRecentTransactions, getActivityLogs, createWalletsForUser } from '../utils/api';
 import { useWallet } from '../context/WalletContext';
 import { useProfile } from '../context/ProfileContext';
+import { useAuth } from '../context/AuthContext';
 
 const hardcodedRecentTx = [
   {
@@ -102,18 +103,17 @@ const hardcodedNotifications = [
 
 const HomeScreen = () => {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const { t } = useTranslation();
-  const { balances, isLoading: walletLoading, getCurrentUser } = useWallet();
+  const { balances, isLoading: walletLoading } = useWallet();
   const { isNewUser } = useProfile();
+  const { user } = useAuth();
 
-  const isDarkMode = theme === 'dark';
-  const backgroundColor = isDarkMode ? '#000' : '#fff';
-  const textColor = isDarkMode ? '#fff' : '#333';
-  const cardColor = isDarkMode ? '#1c1c1e' : '#f6f6f6';
-  const secondaryCard = isDarkMode ? '#2c2c2e' : '#e0c3f7';
-  const balanceTextColor = '#fff';
-  const fabColor = isDarkMode ? '#2e2e2e' : '#d6bde1ff';
+  const backgroundColor = colors.background;
+  const textColor = colors.textPrimary;
+  const cardColor = colors.surface;
+  const balanceTextColor = colors.accentText;
+  const fabColor = colors.surface;
 
   const [hasUnread, setHasUnread] = useState(false);
   const [badge, setBadge] = useState(0);
@@ -161,53 +161,34 @@ const HomeScreen = () => {
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      
-      console.log('=== LOADING HOME DATA ===');
-      console.log('Current user:', getCurrentUser());
-      console.log('Wallet loading:', walletLoading);
-      
+
       // Wait for wallet data to load if it's still loading
       if (walletLoading) {
-        console.log('Waiting for wallet data to load...');
         // Wait a bit for wallet context to finish loading
         await new Promise(resolve => setTimeout(resolve, 500));
       }
-      
-      // Ensure demo user has wallets - this is critical
-      console.log('Creating wallets for user 1...');
-      const walletResult = await createWalletsForUser(1);
-      console.log('Wallet creation result:', walletResult);
-      
-      if (!walletResult.success) {
-        console.log('Failed to create wallets, but continuing...');
-      }
-      
-      const [profile, transactions, logs] = await Promise.all([
-        getUserProfile().catch(() => ({ firstName: 'User' })),
-        getRecentTransactions(),
+
+      // Ensure the user has wallets provisioned
+      await createWalletsForUser();
+
+      const [profileResponse, transactions, logs] = await Promise.all([
+        getUserProfile().catch(() => ({ user: { firstName: 'User' } })),
+        user?.id ? getRecentTransactions(user.id) : Promise.resolve([]),
         getActivityLogs(),
       ]);
-      setUserProfile(profile);
-      
-      console.log('Recent transactions loaded:', transactions);
-      console.log('Activity logs loaded:', logs);
+      setUserProfile(profileResponse?.user || profileResponse);
+
       setRecentTx(transactions);
       setRecentLogs(logs);
-      
+
       // Set notifications based on user type
-      if (isNewUser) {
-        setNotifications([]); // Empty for signup users
-      } else {
-        setNotifications(hardcodedNotifications); // Hardcoded for login users
-      }
-      
-      const unreadCount = notifications?.filter(n => !n.read)?.length || 0;
+      const newNotifications = isNewUser ? [] : hardcodedNotifications;
+      setNotifications(newNotifications);
+
+      const unreadCount = newNotifications?.filter(n => !n.read)?.length || 0;
       setHasUnread(unreadCount > 0);
       setBadge(unreadCount);
-      
-      console.log('=== HOME DATA LOADED ===');
     } catch (error) {
-      console.log('Error loading home data:', error);
       // Only alert for critical errors, not profile fetch
       // Alert.alert('Error', 'Failed to load home data: ' + error.toString());
     } finally {
@@ -229,7 +210,7 @@ const HomeScreen = () => {
   if (loading || walletLoading) {
     return (
       <View style={[styles.container, { backgroundColor, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#800080" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={{ color: textColor, marginTop: 10 }}>
           {walletLoading ? 'Loading wallet data...' : 'Loading...'}
         </Text>
@@ -239,8 +220,6 @@ const HomeScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor, flex: 1 }]}> {/* Ensure full height */}
-      {console.log('recentLogs:', recentLogs)}
-      {console.log('recentTx:', recentTx)}
       <ScrollView
         contentContainerStyle={{
           ...styles.scrollContent,
@@ -253,19 +232,19 @@ const HomeScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#800080']}
-            tintColor="#800080"
+            colors={[colors.accent]}
+            tintColor={colors.accent}
           />
         }
       >
         <View style={styles.greetingRow}>
           <View style={styles.greetingLeft}>
-            <View style={[styles.avatar, { backgroundColor: '#800080' }]}>
-              <Text style={styles.avatarText}>
+            <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
+              <Text style={[styles.avatarText, { color: colors.accentText }]}>
                 {userProfile?.firstName?.split(' ')[0]?.charAt(0) || userProfile?.fullName?.split(' ')[0]?.charAt(0) || 'U'}
               </Text>
             </View>
-            <Text style={[styles.welcomeText, { color: textColor }]}> 
+            <Text style={[styles.welcomeText, { color: textColor }]}>
               {t('welcomeBack')} to Swift! 👋
             </Text>
           </View>
@@ -279,27 +258,27 @@ const HomeScreen = () => {
             }}
           >
             <Animated.View style={{ transform: [{ scale: pulse }] }}>
-              <Ionicons name="notifications-outline" size={24} color={hasUnread ? '#800080' : '#999'} />
+              <Ionicons name="notifications-outline" size={24} color={hasUnread ? colors.accent : colors.textMuted} />
               {badge > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{badge}</Text>
+                <View style={[styles.badge, { backgroundColor: colors.error }]}>
+                  <Text style={[styles.badgeText, { color: colors.accentText }]}>{badge}</Text>
                 </View>
               )}
             </Animated.View>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.balanceCard, { backgroundColor: '#800080' }]}>
+        <View style={[styles.balanceCard, { backgroundColor: colors.accent }]}>
           <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>GHS</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Text style={[styles.balanceAmount, { color: balanceTextColor }]}> 
+            <Text style={[styles.balanceAmount, { color: balanceTextColor }]}>
               {showGhsBalance ? `₵${balances.GHS.toFixed(2)}` : '****'}
             </Text>
             <TouchableOpacity onPress={() => setShowGhsBalance(v => !v)} style={{ marginLeft: 10 }}>
               <Ionicons
                 name={showGhsBalance ? 'eye-outline' : 'eye-off-outline'}
                 size={22}
-                color="#fff"
+                color={colors.accentText}
               />
             </TouchableOpacity>
           </View>
@@ -325,20 +304,24 @@ const HomeScreen = () => {
   );
 };
 
-const ActionBtn = ({ icon, label, onPress }) => (
-  <TouchableOpacity style={styles.actionButton} onPress={onPress}>
-    <Ionicons name={icon} size={18} color="#800080" style={{ marginRight: 6 }} />
-    <Text style={styles.actionText}>{label}</Text>
-  </TouchableOpacity>
-);
+const ActionBtn = ({ icon, label, onPress }) => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.surface }]} onPress={onPress}>
+      <Ionicons name={icon} size={18} color={colors.accent} style={{ marginRight: 6 }} />
+      <Text style={[styles.actionText, { color: colors.accent }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+};
 
 const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPress = () => {} }) => {
   const { t } = useTranslation();
-  
+  const { colors } = useTheme();
+
   if (!Array.isArray(data)) {
     return (
-      <View style={[styles.activityCard, { backgroundColor: cardColor }]}> 
-        <Text style={{ color: 'red' }}>Error: Activity data is not an array.</Text>
+      <View style={[styles.activityCard, { backgroundColor: cardColor }]}>
+        <Text style={{ color: colors.error }}>Error: Activity data is not an array.</Text>
       </View>
     );
   }
@@ -385,14 +368,14 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
     if (transaction.displayType) {
       return transaction.displayType;
     }
-    
+
     // Fallback to description or type
     if (transaction.description) {
-      return transaction.description.length > 30 
-        ? transaction.description.substring(0, 30) + '...' 
+      return transaction.description.length > 30
+        ? transaction.description.substring(0, 30) + '...'
         : transaction.description;
     }
-    
+
     return transaction.transactionType || 'Transaction';
   };
 
@@ -400,23 +383,23 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
     if (transaction.formattedTime) {
       return transaction.formattedTime;
     }
-    
+
     // Fallback for old data format
     if (transaction.time) {
       return transaction.time;
     }
-    
+
     return 'Now';
   };
-  
+
   return (
   <View style={[styles.activityCard, { backgroundColor: cardColor }]}>
-    <Text style={styles.activityTitle}>{title}</Text>
+    <Text style={[styles.activityTitle, { color: colors.textPrimary }]}>{title}</Text>
       {data && data.length > 0 ? (
         data.map((it) => {
           // Handle both transaction data and old activity data format
           const isTransaction = it.transactionType || it.displayType;
-          
+
           if (isTransaction) {
             // Handle transaction data from backend
             const icon = getTransactionIcon(it.transactionType, it.isIncoming, it.description);
@@ -425,18 +408,18 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
             const amount = it.amount;
             const currencySymbol = it.currencySymbol || '₵';
             const isIncoming = it.isIncoming;
-            
+
             return (
               <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
-                <View style={styles.activityIcon}>
-                  <Ionicons name={icon} size={20} color="#800080" />
+                <View style={[styles.activityIcon, { backgroundColor: colors.border }]}>
+                  <Ionicons name={icon} size={20} color={colors.accent} />
                 </View>
                 <View style={{ flex: 1, marginHorizontal: 10 }}>
-                  <Text style={styles.activityLabel}>{label}</Text>
-                  <Text style={styles.activityTime}>{time}</Text>
+                  <Text style={[styles.activityLabel, { color: colors.textPrimary }]}>{label}</Text>
+                  <Text style={[styles.activityTime, { color: colors.textMuted }]}>{time}</Text>
                 </View>
                 {withAmounts && (
-                  <Text style={[styles.amount, { color: isIncoming ? '#009900' : '#cc0000' }]}>
+                  <Text style={[styles.amount, { color: isIncoming ? colors.success : colors.error }]}>
                     {formatAmount(amount, currencySymbol, isIncoming)}
                   </Text>
                 )}
@@ -446,15 +429,15 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
             // Handle old activity data format
             return (
       <TouchableOpacity key={it.id} style={styles.activityRow} onPress={() => onItemPress(it)} activeOpacity={0.65}>
-        <View style={styles.activityIcon}>
-          <Ionicons name={it.icon} size={20} color="#800080" />
+        <View style={[styles.activityIcon, { backgroundColor: colors.border }]}>
+          <Ionicons name={it.icon} size={20} color={colors.accent} />
         </View>
         <View style={{ flex: 1, marginHorizontal: 10 }}>
-          <Text style={styles.activityLabel}>{it.label}</Text>
-          <Text style={styles.activityTime}>{it.time}</Text>
+          <Text style={[styles.activityLabel, { color: colors.textPrimary }]}>{it.label}</Text>
+          <Text style={[styles.activityTime, { color: colors.textMuted }]}>{it.time}</Text>
         </View>
         {withAmounts && (
-          <Text style={[styles.amount, { color: it.amount >= 0 ? '#009900' : '#cc0000' }]}>
+          <Text style={[styles.amount, { color: it.amount >= 0 ? colors.success : colors.error }]}>
             {it.amount >= 0 ? `+${it.amount.toFixed(2)}` : `-${Math.abs(it.amount).toFixed(2)}`}
           </Text>
         )}
@@ -464,8 +447,8 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
         })
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="document-outline" size={24} color="#999" />
-          <Text style={styles.emptyText}>
+          <Ionicons name="document-outline" size={24} color={colors.textMuted} />
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
             {title === t('recentActivity') ? t('noRecentActivity') : t('noRecentTransactions')}
           </Text>
         </View>
@@ -475,6 +458,7 @@ const ActivityBlock = ({ title, data, cardColor, withAmounts = false, onItemPres
 };
 
 const Tab = ({ name, label, onPress, active }) => {
+  const { colors } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -487,11 +471,11 @@ const Tab = ({ name, label, onPress, active }) => {
   }, [active]);
 
   return (
-    <TouchableOpacity style={[styles.tab, active && styles.activeTab]} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={[styles.tab, active && { backgroundColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <Ionicons name={name} size={22} color="#800080" />
+        <Ionicons name={name} size={22} color={colors.accent} />
       </Animated.View>
-      <Text style={[styles.tabText, active && styles.activeTabText]}>{label}</Text>
+      <Text style={[styles.tabText, active && styles.activeTabText, { color: colors.accent }]}>{label}</Text>
     </TouchableOpacity>
   );
 };
@@ -527,14 +511,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
-  avatarText: { color: '#fff', fontWeight: 'bold' },
+  avatarText: { fontWeight: 'bold' },
   welcomeText: { fontSize: 16, fontWeight: '600' },
   notificationWrapper: { position: 'relative' },
   badge: {
     position: 'absolute',
     top: -6,
     right: -8,
-    backgroundColor: 'red',
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -542,7 +525,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  badgeText: { fontSize: 10, fontWeight: 'bold' },
   balanceCard: {
     borderRadius: 16,
     padding: 20,
@@ -557,7 +540,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   actionButton: {
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
@@ -566,7 +548,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  actionText: { color: '#800080', fontWeight: '600' },
+  actionText: { fontWeight: '600' },
   activityCard: {
     borderRadius: 16,
     padding: 20,
@@ -580,12 +562,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   activityIcon: {
-    backgroundColor: '#e0c3f7',
     borderRadius: 20,
     padding: 10,
   },
   activityLabel: { fontWeight: '600' },
-  activityTime: { fontSize: 12, color: '#888' },
+  activityTime: { fontSize: 12 },
   amount: { fontWeight: 'bold' },
   fabBar: {
     position: 'absolute',
@@ -607,15 +588,10 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 11,
-    color: '#800080',
     marginTop: 2,
-  },
-  activeTab: {
-    backgroundColor: '#d2aae3ff',
   },
   activeTabText: {
     fontWeight: 'bold',
-    color: '#800080',
   },
   emptyState: {
     alignItems: 'center',
@@ -623,7 +599,6 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   emptyText: {
-    color: '#999',
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',

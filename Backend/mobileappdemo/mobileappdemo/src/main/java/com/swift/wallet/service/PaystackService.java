@@ -1,17 +1,18 @@
 package com.swift.wallet.service;
 
 import com.swift.wallet.enums.CurrencyType;
-import com.swift.wallet.repository.WalletRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import com.swift.wallet.dto.PaystackTransferRecipientRequest;
 import com.swift.wallet.dto.PaystackTransferRecipientResponse;
 
@@ -20,9 +21,6 @@ public class PaystackService {
 
     @Autowired
     private RestTemplate restTemplate;
-
-    @Autowired
-    private WalletRepository walletRepository;
 
     @Value("${paystack.secret.key}")
     private String secretKey;
@@ -118,23 +116,6 @@ public class PaystackService {
     }
 
     /**
-     * Process payment to wallet
-     */
-    public boolean processPaymentToWallet(String email, BigDecimal amount, CurrencyType currency, String reference) {
-        // Verify payment first
-        if (!verifyPayment(reference)) {
-            throw new RuntimeException("Payment verification failed");
-        }
-
-        // Find user's wallet for the currency
-        // Note: You'll need to implement user lookup by email
-        // For now, we'll assume we have the user ID
-        // This is a simplified version - you'll need to adapt based on your user management
-
-        return true;
-    }
-
-    /**
      * Initiate a transfer (withdrawal) to a recipient's bank account using Paystack
      */
     public Map<String, Object> initiateTransfer(String recipientCode, BigDecimal amount, String reason) {
@@ -201,9 +182,40 @@ public class PaystackService {
     }
 
     /**
+     * List valid Paystack recipient banks/mobile-money providers for Ghana.
+     * type: "mobile_money" for mobile money providers, null/omitted for regular banks.
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> listBanks(String type) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(apiUrl + "/bank")
+                .queryParam("country", "ghana")
+                .queryParam("currency", "GHS");
+        if (type != null && !type.isBlank()) {
+            builder.queryParam("type", type);
+        }
+        String url = builder.toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + secretKey);
+        HttpEntity<String> request = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(url, HttpMethod.GET, request, (Class<Map<String, Object>>) (Class<?>) Map.class);
+            Map<String, Object> body = response.getBody();
+            if (body != null && body.get("data") instanceof List) {
+                return (List<Map<String, Object>>) body.get("data");
+            }
+            return new ArrayList<>();
+        } catch (Exception e) {
+            System.err.println("Failed to fetch Paystack bank list: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * Get Paystack public key
      */
     public String getPublicKey() {
         return publicKey;
     }
-} 
+}

@@ -2,21 +2,7 @@ services:
   mysql:
     image: 'mysql:latest'
     environment:
-      - 'MYSQL_DATABASE=mydatabase'
-      - 'MYSQL_PASSWORD=secret'
-      - 'MYSQL_ROOT_PASSWORD=verysecret'
-      - 'MYSQL_USER=myuser'
+      - 'MYSQL_DATABASE=auth_db'
+      - 'MYSQL_ROOT_PASSWORD=${DB_PASSWORD}'
     ports:
-      - '3306'
-  postgres:
-    image: 'postgres:latest'
-    environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
-    ports:
-      - '5432'
-  redis:
-    image: 'redis:latest'
-    ports:
-      - '6379'
+      - '3306:3306'

@@ -1,12 +1,16 @@
 package com.swift.auth.controller;
 
+import com.swift.auth.dto.ChangePasswordRequest;
 import com.swift.auth.dto.UserResponse;
 import com.swift.auth.models.User;
 import com.swift.auth.repository.UserRepository;
+import com.swift.auth.service.AuthService;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -17,30 +21,24 @@ import java.util.Optional;
 @CrossOrigin(originPatterns = "*", allowCredentials = "false")
 public class UserController {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
-    
+
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private AuthService authService;
+
     @GetMapping("/profile")
-    public ResponseEntity<?> getUserProfile(@RequestHeader("Authorization") String token) {
-        logger.info("Getting user profile for token: {}", token);
-        
+    public ResponseEntity<?> getUserProfile(@AuthenticationPrincipal Long userId) {
+        logger.info("Getting user profile for user: {}", userId);
+
         try {
-            // For demo purposes, always return user with ID 1
-            // In production, you would extract user ID from the JWT token
-            Long userId = 1L;
-            
             Optional<User> userOpt = userRepository.findById(userId);
-            User user;
-            
             if (userOpt.isEmpty()) {
-                // Create a demo user if it doesn't exist
-                logger.info("Demo user not found, creating one...");
-                user = createDemoUser();
-            } else {
-                user = userOpt.get();
+                return ResponseEntity.notFound().build();
             }
-            
+            User user = userOpt.get();
+
             UserResponse userResponse = new UserResponse(
                 user.getId(),
                 user.getUsername(),
@@ -52,12 +50,12 @@ public class UserController {
                 user.getFullName(),
                 user.getCreatedAt()
             );
-            
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "user", userResponse
             ));
-            
+
         } catch (Exception e) {
             logger.error("Error getting user profile: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body(Map.of(
@@ -66,23 +64,14 @@ public class UserController {
             ));
         }
     }
-    
-    private User createDemoUser() {
-        User demoUser = new User();
-        demoUser.setId(1L);
-        demoUser.setUsername("demo");
-        demoUser.setEmail("demo@example.com");
-        demoUser.setEmailOrPhone("demo@example.com");
-        demoUser.setFirstName("Demo");
-        demoUser.setLastName("User");
-        demoUser.setPassword("hashedPassword"); // In real app, this would be properly hashed
-        demoUser.setCreatedAt(java.time.LocalDateTime.now());
-        
-        return userRepository.save(demoUser);
+
+    @PutMapping("/password")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request, @AuthenticationPrincipal Long userId) {
+        return authService.changePassword(userId, request);
     }
 
     @GetMapping("/activity-logs")
-    public ResponseEntity<?> getActivityLogs(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> getActivityLogs(@AuthenticationPrincipal Long userId) {
         try {
             // For demo purposes, return mock activity logs
             // In production, you would have an ActivityLog entity and repository

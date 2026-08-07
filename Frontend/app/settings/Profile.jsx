@@ -18,17 +18,17 @@ export default function ChangeProfilePhoto() {
   const router = useRouter();
   const { profileImage, setProfileImage } = useContext(ProfileContext);
   const [image, setImage] = useState(profileImage);
-  const { isDarkMode } = useTheme(); // ✅ Get dark mode state
-  const styles = getStyles(isDarkMode); // ✅ Dynamic styles
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
 
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#fff' : '#800080'} />
+          <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
         </TouchableOpacity>
         <Text style={styles.title}>Change Profile Photo</Text>
-        <Text style={{ marginTop: 20, fontSize: 16, color: isDarkMode ? '#ccc' : '#333' }}>
+        <Text style={{ marginTop: 20, fontSize: 16, color: colors.textMuted }}>
           This feature is not available on web.
         </Text>
       </View>
@@ -77,7 +77,7 @@ export default function ChangeProfilePhoto() {
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
       <Text style={styles.title}>Change Profile Photo</Text>
@@ -86,29 +86,29 @@ export default function ChangeProfilePhoto() {
         <Image source={{ uri: image }} style={styles.profileImage} />
       ) : (
         <View style={styles.placeholder}>
-          <Ionicons name="person-circle-outline" size={100} color={isDarkMode ? '#888' : '#ccc'} />
+          <Ionicons name="person-circle-outline" size={100} color={colors.textMuted} />
         </View>
       )}
 
       <TouchableOpacity style={styles.button} onPress={pickImageFromGallery}>
-        <Ionicons name="image-outline" size={20} color="#fff" />
+        <Ionicons name="image-outline" size={20} color={colors.accentText} />
         <Text style={styles.buttonText}>Select from Gallery</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={takePhotoWithCamera}>
-        <Ionicons name="camera-outline" size={20} color="#fff" />
+        <Ionicons name="camera-outline" size={20} color={colors.accentText} />
         <Text style={styles.buttonText}>Take a Photo</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-const getStyles = (isDarkMode) =>
+const getStyles = (colors) =>
   StyleSheet.create({
     container: {
       flex: 1,
       padding: 20,
-      backgroundColor: isDarkMode ? '#000' : '#fff',
+      backgroundColor: colors.background,
       alignItems: 'center',
     },
     backButton: {
@@ -119,13 +119,13 @@ const getStyles = (isDarkMode) =>
       fontSize: 22,
       fontWeight: 'bold',
       marginBottom: 20,
-      color: isDarkMode ? '#fff' : '#800080',
+      color: colors.textPrimary,
     },
     placeholder: {
       width: 140,
       height: 140,
       borderRadius: 70,
-      backgroundColor: isDarkMode ? '#222' : '#eee',
+      backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 20,
@@ -139,14 +139,14 @@ const getStyles = (isDarkMode) =>
     button: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#800080',
+      backgroundColor: colors.accent,
       paddingVertical: 12,
       paddingHorizontal: 20,
       borderRadius: 10,
       marginTop: 10,
     },
     buttonText: {
-      color: '#fff',
+      color: colors.accentText,
       fontWeight: 'bold',
       marginLeft: 8,
     },

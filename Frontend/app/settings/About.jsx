@@ -6,14 +6,14 @@ import { useTheme } from '../context/ThemeContext'; // ✅ make sure path is cor
 
 export default function About() {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
 
-  const themeStyles = styles(isDarkMode);
+  const themeStyles = styles(colors);
 
   return (
     <View style={themeStyles.container}>
       <TouchableOpacity onPress={() => router.back()} style={themeStyles.backButton}>
-        <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
       <Image source={require('../../assets/swift-logo.png')} style={themeStyles.logo} />
@@ -26,13 +26,13 @@ export default function About() {
   );
 }
 
-const styles = (isDarkMode) =>
+const styles = (colors) =>
   StyleSheet.create({
     container: {
       flex: 1,
       padding: 20,
       alignItems: 'center',
-      backgroundColor: isDarkMode ? '#000' : '#fff',
+      backgroundColor: colors.background,
     },
     backButton: {
       position: 'absolute',
@@ -49,11 +49,11 @@ const styles = (isDarkMode) =>
       fontSize: 20,
       fontWeight: 'bold',
       marginBottom: 10,
-      color: isDarkMode ? '#fff' : '#800080',
+      color: colors.textPrimary,
     },
     text: {
       fontSize: 16,
       textAlign: 'center',
-      color: isDarkMode ? '#ccc' : '#333',
+      color: colors.textMuted,
     },
   });

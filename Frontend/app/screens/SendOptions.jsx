@@ -7,7 +7,7 @@ import { getSendMethods } from '../utils/api';
 
 const SendOptionsScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors, radius } = useTheme();
   const [sendMethods, setSendMethods] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,53 +37,53 @@ const SendOptionsScreen = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff', justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={isDarkMode ? '#fff' : '#800080'} />
-        <Text style={[styles.loadingText, { color: isDarkMode ? '#fff' : '#000' }]}>Loading send methods...</Text>
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={[styles.loadingText, { color: colors.textPrimary }]}>Loading send methods...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
-      
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+
       {/* Back Arrow */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
-      <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#800080' }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
         How would you like to send money?
       </Text>
 
       {/* Send to Bank Account */}
       <TouchableOpacity
-        style={[styles.optionCard, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5' }]}
+        style={[styles.optionCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md }]}
         onPress={handleSendToBank}
       >
         <Image
           source={{ uri: 'https://cdn-icons-png.flaticon.com/512/4334/4334959.png' }}
           style={styles.icon}
         />
-        <Text style={[styles.optionText, { color: isDarkMode ? '#fff' : '#800080' }]}>
+        <Text style={[styles.optionText, { color: colors.textPrimary }]}>
           Send to Bank Account
         </Text>
-        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
       </TouchableOpacity>
 
       {/* Send to Mobile Wallet */}
       <TouchableOpacity
-        style={[styles.optionCard, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5' }]}
+        style={[styles.optionCard, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md }]}
         onPress={handleSendToMobile}
       >
         <Image
           source={{ uri: 'https://cdn-icons-png.flaticon.com/512/3144/3144456.png' }}
           style={styles.icon}
         />
-        <Text style={[styles.optionText, { color: isDarkMode ? '#fff' : '#800080' }]}>
+        <Text style={[styles.optionText, { color: colors.textPrimary }]}>
           Send to Mobile Wallet
         </Text>
-        <Ionicons name="chevron-forward" size={20} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="chevron-forward" size={20} color={colors.accent} />
       </TouchableOpacity>
     </View>
   );
@@ -116,9 +116,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 18,
-    borderRadius: 12,
+    borderWidth: 1,
     marginBottom: 20,
-    elevation: 2,
   },
   icon: {
     width: 40,

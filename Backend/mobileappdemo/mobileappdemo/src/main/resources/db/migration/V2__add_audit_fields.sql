@@ -19,13 +19,13 @@ CREATE INDEX idx_otp_entry_email_created ON otp_entry(email, created_at);
 CREATE INDEX idx_otp_entry_expires_at ON otp_entry(expires_at);
 
 -- Add constraints for data integrity
-ALTER TABLE wallets 
+ALTER TABLE wallets
 ADD CONSTRAINT chk_balance_positive CHECK (balance >= 0),
-ADD CONSTRAINT chk_currency_valid CHECK (currency IN ('GHS', 'USD', 'GBP', 'EUR'));
+ADD CONSTRAINT chk_wallets_currency_valid CHECK (currency IN ('GHS', 'USD', 'GBP', 'EUR'));
 
-ALTER TABLE transactions 
+ALTER TABLE transactions
 ADD CONSTRAINT chk_amount_positive CHECK (amount > 0),
-ADD CONSTRAINT chk_currency_valid CHECK (currency IN ('GHS', 'USD', 'GBP', 'EUR')),
+ADD CONSTRAINT chk_transactions_currency_valid CHECK (currency IN ('GHS', 'USD', 'GBP', 'EUR')),
 ADD CONSTRAINT chk_status_valid CHECK (status IN ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED')),
 ADD CONSTRAINT chk_type_valid CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'CURRENCY_EXCHANGE', 'PAYMENT'));
 

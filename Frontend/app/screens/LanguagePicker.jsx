@@ -3,12 +3,15 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import Button from '../components/Button';
 
 const LanguagePicker = () => {
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const router = useRouter();
   const { t } = useTranslation();
   const { changeLanguage } = useLanguage();
+  const { colors } = useTheme();
 
   const languages = [
     { code: 'en', name: t('english') },
@@ -33,27 +36,26 @@ const LanguagePicker = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}>
       {languages.map((lang) => (
         <TouchableOpacity
           key={lang.code}
           onPress={() => handleLanguageSelect(lang.code)}
           style={[
             styles.languageButton,
-            selectedLanguage === lang.code && styles.selectedLanguageButton,
+            selectedLanguage === lang.code && { borderBottomWidth: 2, borderBottomColor: colors.accent },
           ]}
         >
-          <Text style={styles.languageText}>{lang.name}</Text>
+          <Text style={[styles.languageText, { color: colors.textPrimary }]}>{lang.name}</Text>
         </TouchableOpacity>
       ))}
 
-      <TouchableOpacity
+      <Button
+        title={t('continue')}
         onPress={handleContinue}
-        style={[styles.continueButton, !selectedLanguage && { backgroundColor: '#ccc' }]}
         disabled={!selectedLanguage}
-      >
-        <Text style={styles.continueText}>{t('continue')}</Text>
-      </TouchableOpacity>
+        style={{ marginTop: 40 }}
+      />
     </ScrollView>
   );
 };
@@ -62,7 +64,6 @@ export default LanguagePicker;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#800080',
     paddingVertical: 40,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -70,25 +71,8 @@ const styles = StyleSheet.create({
   languageButton: {
     marginVertical: 10,
   },
-  selectedLanguageButton: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#fff',
-  },
   languageText: {
     fontSize: 28,
-    color: '#fff',
     fontWeight: 'bold',
-  },
-  continueButton: {
-    marginTop: 40,
-    backgroundColor: '#fff',
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-  },
-  continueText: {
-    color: '#800080',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });

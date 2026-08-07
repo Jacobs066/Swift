@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  TextInput,
-  Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -14,67 +12,34 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../context/WalletContext';
-
-const banks = [
-  {
-    name: 'Access Bank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/7/79/Access_Bank_logo.png',
-  },
-  {
-    name: 'Zenith Bank',
-    logo: 'https://seeklogo.com/images/Z/zenith-bank-plc-logo-FAF67F15CA-seeklogo.com.png',
-  },
-  {
-    name: 'First Bank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/f/f1/First_Bank_of_Nigeria_logo.png',
-  },
-  {
-    name: 'UBA',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/5/5f/United_Bank_for_Africa_logo.png',
-  },
-  {
-    name: 'GCB',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/2/26/GCB_Bank_logo.png',
-  },
-  {
-    name: 'GTBank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/7/70/GTBank_logo.png',
-  },
-  {
-    name: 'Fidelity Bank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/b/bc/Fidelity_Bank_Nigeria_logo.png',
-  },
-  {
-    name: 'Ecobank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/c/c9/Ecobank_logo.png',
-  },
-  {
-    name: 'CBG',
-    logo: 'https://www.cbghana.com/themes/custom/cbg/images/cbg_logo.png',
-  },
-  {
-    name: 'Stanbic Bank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/b/b7/Stanbic_Bank_Logo.png',
-  },
-  {
-    name: 'Union Bank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/4/44/Union_Bank_of_Nigeria_logo.png',
-  },
-  {
-    name: 'Keystone Bank',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/1/10/Keystone_Bank_logo.png',
-  },
-];
+import { getBanks } from '../utils/api';
+import TextInput from '../components/TextInput';
+import Button from '../components/Button';
 
 const SendToBankScreen = () => {
-  const { sendOrWithdraw, balances } = useWallet();
-  const [selectedBank, setSelectedBank] = useState('');
+  const { send, balances } = useWallet();
+  const [banks, setBanks] = useState([]);
+  const [loadingBanks, setLoadingBanks] = useState(true);
+  const [selectedBank, setSelectedBank] = useState(null);
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
   const [processing, setProcessing] = useState(false);
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
+
+  useEffect(() => {
+    const loadBanks = async () => {
+      try {
+        setLoadingBanks(true);
+        const response = await getBanks('bank');
+        setBanks(response.banks || []);
+      } finally {
+        setLoadingBanks(false);
+      }
+    };
+    loadBanks();
+  }, []);
 
   const validateForm = () => {
     if (!selectedBank) {
@@ -105,13 +70,26 @@ const SendToBankScreen = () => {
 
     try {
       setProcessing(true);
-      
-      // Use the sendOrWithdraw function with proper parameters for transaction tracking
-      sendOrWithdraw(Number(amount), 'Send', accountName);
-      
-      Alert.alert('Send Successful', `₵${amount} has been sent from your GHS wallet!`);
-      router.push('/screens/HomeScreen');
 
+      const response = await send(Number(amount), 'bank', {
+        fullName: accountName,
+        accountNumber,
+        bankCode: selectedBank.code,
+      });
+
+      if (response.success) {
+        router.push({
+          pathname: '/screens/SendSuccess',
+          params: {
+            amount: `GHS ${amount}`,
+            recipient: accountName,
+            method: selectedBank.name,
+            reference: response.paystackResponse?.data?.reference || '',
+          },
+        });
+      } else {
+        Alert.alert('Error', response.message || 'Failed to send money');
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to send money: ' + error.toString());
     } finally {
@@ -120,104 +98,80 @@ const SendToBankScreen = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
-      
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+
       {/* Back Arrow */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backArrow}>
-        <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
-      <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#800080' }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
         Send Money to a Bank
       </Text>
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>Choose Bank</Text>
-      <FlatList
-        data={banks}
-        keyExtractor={(item) => item.name}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.bankItem,
-              selectedBank === item.name && styles.selectedBank,
-            ]}
-            onPress={() => setSelectedBank(item.name)}
-          >
-            <Image source={{ uri: item.logo }} style={styles.logo} />
-            <Text style={{ color: selectedBank === item.name ? '#fff' : '#800080', marginLeft: 8 }}>
-              {item.name}
-            </Text>
-          </TouchableOpacity>
-        )}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ marginBottom: 20 }}
-      />
+      <Text style={[styles.label, { color: colors.textMuted }]}>Choose Bank</Text>
+      {loadingBanks ? (
+        <ActivityIndicator size="small" color={colors.accent} style={{ marginBottom: 20 }} />
+      ) : (
+        <FlatList
+          data={banks}
+          keyExtractor={(item) => item.code}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.bankItem,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+                selectedBank?.code === item.code && { backgroundColor: colors.accent, borderColor: colors.accent },
+              ]}
+              onPress={() => setSelectedBank(item)}
+            >
+              <Ionicons
+                name="business-outline"
+                size={18}
+                color={selectedBank?.code === item.code ? colors.accentText : colors.accent}
+              />
+              <Text style={{ color: selectedBank?.code === item.code ? colors.accentText : colors.textPrimary, marginLeft: 8 }}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ marginBottom: 20 }}
+        />
+      )}
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>Account Number</Text>
       <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-            color: isDarkMode ? '#fff' : '#000',
-          },
-        ]}
+        label="Account Number"
         placeholder="Enter account number"
-        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
         keyboardType="numeric"
         value={accountNumber}
         onChangeText={setAccountNumber}
         maxLength={10}
       />
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>Account Holder Name</Text>
       <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-            color: isDarkMode ? '#fff' : '#000',
-          },
-        ]}
+        label="Account Holder Name"
         placeholder="Enter account holder name"
-        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
         value={accountName}
         onChangeText={setAccountName}
       />
 
-      <Text style={[styles.label, { color: isDarkMode ? '#ccc' : '#800080' }]}>Amount</Text>
       <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-            color: isDarkMode ? '#fff' : '#000',
-          },
-        ]}
+        label="Amount"
         placeholder="Enter amount"
-        placeholderTextColor={isDarkMode ? '#888' : '#aaa'}
         keyboardType="numeric"
         value={amount}
         onChangeText={setAmount}
       />
 
-      <TouchableOpacity
-        style={[
-          styles.sendButton,
-          {
-            backgroundColor: selectedBank && accountNumber && accountName && amount && !processing ? '#800080' : '#ccc',
-          },
-        ]}
+      <Button
+        title="Send"
         onPress={handleSend}
-        disabled={!selectedBank || !accountNumber || !accountName || !amount || processing}
-      >
-        {processing ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-        <Text style={styles.sendText}>Send</Text>
-        )}
-      </TouchableOpacity>
+        loading={processing}
+        disabled={!selectedBank || !accountNumber || !accountName || !amount}
+        style={{ marginTop: 10 }}
+      />
     </View>
   );
 };
@@ -248,34 +202,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#800080',
     marginRight: 10,
-    backgroundColor: '#fff',
-  },
-  selectedBank: {
-    backgroundColor: '#800080',
-  },
-  logo: {
-    width: 24,
-    height: 24,
-    resizeMode: 'contain',
-  },
-  input: {
-    height: 50,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  sendButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  sendText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });

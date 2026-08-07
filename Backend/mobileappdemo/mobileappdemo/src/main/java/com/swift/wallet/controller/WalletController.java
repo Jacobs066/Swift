@@ -2,16 +2,18 @@ package com.swift.wallet.controller;
 
 import com.swift.auth.models.User;
 import com.swift.auth.repository.UserRepository;
+import com.swift.wallet.dto.PaystackTransferRecipientRequest;
 import com.swift.wallet.dto.TransferRequest;
 import com.swift.wallet.dto.WalletDto;
 import com.swift.wallet.enums.CurrencyType;
 import com.swift.wallet.enums.TransactionType;
 import com.swift.wallet.service.WalletService;
 import com.swift.wallet.service.PaystackService;
-import com.swift.wallet.service.TransactionService;
-import com.swift.wallet.repository.WalletRepository;
+import com.swift.wallet.service.ExchangeRateService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -35,17 +37,14 @@ public class WalletController {
     private PaystackService paystackService;
 
     @Autowired
-    private TransactionService transactionService;
-
-    @Autowired
-    private WalletRepository walletRepository;
+    private ExchangeRateService exchangeRateService;
 
     /**
      * Get all wallets for the current user
      */
     @GetMapping("/wallets")
-    public ResponseEntity<List<WalletDto>> getUserWallets(@RequestParam Long userId) {
-        List<WalletDto> wallets = walletService.getUserWallets(userId);
+    public ResponseEntity<List<WalletDto>> getUserWallets(@AuthenticationPrincipal Long currentUserId) {
+        List<WalletDto> wallets = walletService.getUserWallets(currentUserId);
         return ResponseEntity.ok(wallets);
     }
 
@@ -53,9 +52,9 @@ public class WalletController {
      * Ensure user has wallets for all currencies
      */
     @PostMapping("/wallets/ensure")
-    public ResponseEntity<?> ensureWalletsExist(@RequestParam Long userId) {
+    public ResponseEntity<?> ensureWalletsExist(@AuthenticationPrincipal Long currentUserId) {
         try {
-            Optional<User> userOpt = userRepository.findById(userId);
+            Optional<User> userOpt = userRepository.findById(currentUserId);
             if (userOpt.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
@@ -82,17 +81,25 @@ public class WalletController {
      * Get specific wallet by ID
      */
     @GetMapping("/wallets/{walletId}")
-    public ResponseEntity<WalletDto> getWalletById(@PathVariable Long walletId) {
-        return walletService.getWalletById(walletId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<WalletDto> getWalletById(@PathVariable Long walletId, @AuthenticationPrincipal Long currentUserId) {
+        Optional<WalletDto> wallet = walletService.getWalletById(walletId);
+        if (wallet.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!wallet.get().getUserId().equals(currentUserId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(wallet.get());
     }
 
     /**
      * Get wallet by currency for current user
      */
     @GetMapping("/wallets/currency/{currency}")
-    public ResponseEntity<WalletDto> getWalletByCurrency(@RequestParam Long userId, @PathVariable CurrencyType currency) {
+    public ResponseEntity<WalletDto> getWalletByCurrency(@RequestParam Long userId, @PathVariable CurrencyType currency, @AuthenticationPrincipal Long currentUserId) {
+        if (!userId.equals(currentUserId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return walletService.getUserWalletByCurrency(userId, currency)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -102,7 +109,14 @@ public class WalletController {
      * Interwallet transfer: move money between user's own wallets (no Paystack)
      */
     @PostMapping("/interwallet")
-    public ResponseEntity<Map<String, Object>> interwalletTransfer(@Valid @RequestBody TransferRequest request) {
+    public ResponseEntity<Map<String, Object>> interwalletTransfer(@Valid @RequestBody TransferRequest request, @AuthenticationPrincipal Long currentUserId) {
+        if (request.getUserId() != null && !request.getUserId().equals(currentUserId)) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Cannot transfer wallets belonging to another user");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        }
+        request.setUserId(currentUserId);
         try {
             boolean success = walletService.transferMoney(request);
             Map<String, Object> response = new HashMap<>();
@@ -118,32 +132,24 @@ public class WalletController {
     }
 
     /**
-     * External transfer: send money to another user via Paystack
+     * Send money to a third party's bank/mobile money account via Paystack.
+     * Balance is checked before calling Paystack, and only debited after Paystack confirms.
      */
-    @PostMapping("/transfer")
-    public ResponseEntity<Map<String, Object>> externalTransfer(@RequestBody Map<String, Object> request) {
+    @PostMapping("/send")
+    public ResponseEntity<Map<String, Object>> send(@RequestBody Map<String, Object> request, @AuthenticationPrincipal Long currentUserId) {
         try {
-            // Required fields: accountNumber, bankCode, currency, amount, reason
-            String name = request.containsKey("name") ? (String) request.get("name") : null;
-            String accountNumber = (String) request.get("accountNumber");
-            String bankCode = (String) request.get("bankCode");
-            String currency = (String) request.get("currency");
-            if (currency == null || currency.isEmpty()) {
-                currency = "GHS";
-            }
-            java.math.BigDecimal amount = new java.math.BigDecimal(request.get("amount").toString());
-            String reason = (String) request.getOrDefault("reason", "External transfer");
+            CurrencyType currency = CurrencyType.valueOf(((String) request.getOrDefault("currency", "GHS")).toUpperCase());
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            String reason = (String) request.getOrDefault("reason", "Send");
 
-            // 1. Create transfer recipient
-            com.swift.wallet.dto.PaystackTransferRecipientRequest recipientRequest = new com.swift.wallet.dto.PaystackTransferRecipientRequest();
-            if (name != null) recipientRequest.setName(name);
-            recipientRequest.setAccount_number(accountNumber);
-            recipientRequest.setBank_code(bankCode);
-            recipientRequest.setCurrency(currency);
-            String recipientCode = paystackService.createTransferRecipient(recipientRequest);
+            // Fail fast if funds aren't there, before ever calling Paystack
+            walletService.ensureSufficientBalance(currentUserId, currency, amount);
 
-            // 2. Initiate transfer
+            String recipientCode = resolveRecipientCode(request, currency);
             Map<String, Object> paystackResponse = paystackService.initiateTransfer(recipientCode, amount, reason);
+            String reference = referenceFrom(paystackResponse, "SEND_");
+
+            walletService.debitWallet(currentUserId, currency, amount, TransactionType.TRANSFER, reason, reference);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -158,22 +164,24 @@ public class WalletController {
     }
 
     /**
-     * Withdraw funds to a recipient's bank account using Paystack
+     * Withdraw funds to the user's own bank/mobile money account using Paystack.
+     * Balance is checked before calling Paystack, and only debited after Paystack confirms.
      */
     @PostMapping("/withdraw")
-    public ResponseEntity<Map<String, Object>> withdraw(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<Map<String, Object>> withdraw(@RequestBody Map<String, Object> request, @AuthenticationPrincipal Long currentUserId) {
         try {
-            String recipientCode = (String) request.get("recipientCode");
+            CurrencyType currency = CurrencyType.valueOf(((String) request.getOrDefault("currency", "GHS")).toUpperCase());
             BigDecimal amount = new BigDecimal(request.get("amount").toString());
             String reason = (String) request.getOrDefault("reason", "Withdrawal");
+
+            walletService.ensureSufficientBalance(currentUserId, currency, amount);
+
+            String recipientCode = resolveRecipientCode(request, currency);
             Map<String, Object> paystackResponse = paystackService.initiateTransfer(recipientCode, amount, reason);
-            // Record withdrawal transaction
-            Long walletId = request.containsKey("walletId") ? Long.valueOf(request.get("walletId").toString()) : null;
-            if (walletId != null) {
-                walletRepository.findById(walletId).ifPresent(wallet -> {
-                    transactionService.createTransaction(wallet, TransactionType.WITHDRAWAL, amount.negate(), wallet.getCurrency(), reason, paystackResponse.getOrDefault("reference", "").toString());
-                });
-            }
+            String reference = referenceFrom(paystackResponse, "WITHDRAW_");
+
+            walletService.debitWallet(currentUserId, currency, amount, TransactionType.WITHDRAWAL, reason, reference);
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("paystackResponse", paystackResponse);
@@ -187,26 +195,44 @@ public class WalletController {
     }
 
     /**
-     * Deposit funds into wallet using Paystack payment initialization
+     * Use a client-supplied Paystack recipient code if present, otherwise create one from
+     * bank/mobile money details.
+     */
+    private String resolveRecipientCode(Map<String, Object> request, CurrencyType currency) {
+        if (request.get("recipientCode") != null) {
+            return (String) request.get("recipientCode");
+        }
+        PaystackTransferRecipientRequest recipientRequest = new PaystackTransferRecipientRequest();
+        String name = (String) request.get("name");
+        if (name != null) recipientRequest.setName(name);
+        recipientRequest.setAccount_number((String) request.get("accountNumber"));
+        recipientRequest.setBank_code((String) request.get("bankCode"));
+        recipientRequest.setCurrency(currency.name());
+        return paystackService.createTransferRecipient(recipientRequest);
+    }
+
+    private String referenceFrom(Map<String, Object> paystackResponse, String prefix) {
+        Object reference = paystackResponse != null ? paystackResponse.get("reference") : null;
+        return reference != null ? reference.toString() : prefix + System.currentTimeMillis();
+    }
+
+    /**
+     * Initialize a Paystack checkout for a deposit. Balance is not touched here - only
+     * /deposit/verify credits the wallet, and only after Paystack confirms payment.
      */
     @PostMapping("/deposit")
-    public ResponseEntity<Map<String, Object>> deposit(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<Map<String, Object>> deposit(@RequestBody Map<String, Object> request, @AuthenticationPrincipal Long currentUserId) {
         try {
             String email = (String) request.get("email");
             BigDecimal amount = new BigDecimal(request.get("amount").toString());
             String reference = (String) request.getOrDefault("reference", "DEP_" + System.currentTimeMillis());
-            Long userId = request.containsKey("userId") ? Long.valueOf(request.get("userId").toString()) : 1L; // Default to user 1 for demo
-            
-            // Create metadata for webhook identification
+
             Map<String, Object> metadata = new HashMap<>();
-            metadata.put("user_id", userId);
+            metadata.put("user_id", currentUserId);
             metadata.put("deposit_type", "wallet_deposit");
             metadata.put("currency", "GHS");
-            
-            System.out.println("Initializing deposit with metadata - User ID: " + userId + ", Email: " + email + ", Amount: " + amount);
-            
-            // You can change CurrencyType.GHS to support other currencies if needed
-            Map<String, Object> paystackResponse = paystackService.initializePayment(email, amount, com.swift.wallet.enums.CurrencyType.GHS, reference, metadata);
+
+            Map<String, Object> paystackResponse = paystackService.initializePayment(email, amount, CurrencyType.GHS, reference, metadata);
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("paystackResponse", paystackResponse);
@@ -220,65 +246,93 @@ public class WalletController {
     }
 
     /**
-     * Verify Paystack payment and credit wallet after successful deposit
+     * Verify a Paystack payment and credit the wallet only if verification actually succeeds.
      */
     @PostMapping("/deposit/verify")
-    public ResponseEntity<Map<String, Object>> verifyDeposit(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<Map<String, Object>> verifyDeposit(@RequestBody Map<String, Object> request, @AuthenticationPrincipal Long currentUserId) {
         try {
-            String email = (String) request.get("email");
             String reference = (String) request.get("reference");
-            java.math.BigDecimal amount = new java.math.BigDecimal(request.get("amount").toString());
-            com.swift.wallet.enums.CurrencyType currency = com.swift.wallet.enums.CurrencyType.GHS; // Or get from request if needed
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            CurrencyType currency = CurrencyType.GHS;
 
-            System.out.println("Verifying deposit - Email: " + email + ", Reference: " + reference + ", Amount: " + amount);
+            boolean paymentVerified = paystackService.verifyPayment(reference);
 
-            // For test mode, simulate successful verification
-            boolean paymentVerified = true; // In production, this would be: paystackService.verifyPayment(reference);
-            
             Map<String, Object> response = new HashMap<>();
-            if (paymentVerified) {
-                // Find user and wallet
-                com.swift.auth.models.User user = userRepository.findByEmail(email).orElse(null);
-                if (user == null) {
-                    response.put("success", false);
-                    response.put("message", "User not found");
-                    return ResponseEntity.badRequest().body(response);
-                }
-                java.util.Optional<com.swift.wallet.models.Wallet> walletOpt = walletRepository.findUserWalletByCurrency(user.getId(), currency);
-                if (walletOpt.isEmpty()) {
-                    response.put("success", false);
-                    response.put("message", "Wallet not found");
-                    return ResponseEntity.badRequest().body(response);
-                }
-                com.swift.wallet.models.Wallet wallet = walletOpt.get();
-                
-                // Credit wallet
-                java.math.BigDecimal oldBalance = wallet.getBalance();
-                wallet.setBalance(wallet.getBalance().add(amount));
-                walletRepository.save(wallet);
-                
-                System.out.println("Wallet updated - User: " + user.getId() + ", Currency: " + currency + 
-                                 ", Old Balance: " + oldBalance + ", New Balance: " + wallet.getBalance());
-                
-                // Record deposit transaction
-                transactionService.createTransaction(wallet, TransactionType.DEPOSIT, amount, currency, "Deposit via Paystack", reference);
-                
-                response.put("success", true);
-                response.put("message", "Deposit verified and wallet credited");
-                response.put("oldBalance", oldBalance);
-                response.put("newBalance", wallet.getBalance());
-                response.put("amount", amount);
-            } else {
+            if (!paymentVerified) {
                 response.put("success", false);
                 response.put("message", "Payment verification failed");
+                return ResponseEntity.badRequest().body(response);
             }
+
+            walletService.allocateFundsToWallet(currentUserId, currency, amount, "Deposit via Paystack - " + reference, reference);
+            WalletDto wallet = walletService.getUserWalletByCurrency(currentUserId, currency)
+                    .orElseThrow(() -> new RuntimeException("Wallet not found after deposit"));
+
+            response.put("success", true);
+            response.put("message", "Deposit verified and wallet credited");
+            response.put("newBalance", wallet.getBalance());
+            response.put("amount", amount);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("Failed to verify deposit: " + e.getMessage());
-            e.printStackTrace();
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Current exchange rates for the supported currency pairs.
+     */
+    @GetMapping("/rates")
+    public ResponseEntity<Map<String, Object>> getRates() {
+        try {
+            List<Map<String, Object>> rates = new java.util.ArrayList<>();
+            CurrencyType[] currencies = CurrencyType.values();
+            for (CurrencyType from : currencies) {
+                for (CurrencyType to : currencies) {
+                    if (from == to) continue;
+                    rates.add(Map.of(
+                        "fromCurrency", from.name(),
+                        "toCurrency", to.name(),
+                        "rate", exchangeRateService.getExchangeRate(from, to)
+                    ));
+                }
+            }
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("rates", rates);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to fetch rates: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * Valid Paystack recipient banks/mobile-money providers, so the client can offer
+     * a real picker instead of free-text bank codes.
+     */
+    @GetMapping("/banks")
+    public ResponseEntity<Map<String, Object>> getBanks(@RequestParam(required = false) String type) {
+        try {
+            List<Map<String, Object>> banks = paystackService.listBanks(type);
+            List<Map<String, Object>> simplified = banks.stream()
+                    .map(b -> Map.<String, Object>of(
+                        "name", b.getOrDefault("name", ""),
+                        "code", b.getOrDefault("code", "")
+                    ))
+                    .toList();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("banks", simplified);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Failed to fetch banks: " + e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
@@ -287,24 +341,31 @@ public class WalletController {
      * Get wallet balance
      */
     @GetMapping("/balance/{walletId}")
-    public ResponseEntity<Map<String, Object>> getWalletBalance(@PathVariable Long walletId) {
-        return walletService.getWalletById(walletId)
-                .map(wallet -> {
-                    Map<String, Object> response = new HashMap<>();
-                    response.put("walletId", wallet.getId());
-                    response.put("currency", wallet.getCurrency());
-                    response.put("balance", wallet.getBalance());
-                    response.put("symbol", wallet.getCurrency().getSymbol());
-                    return ResponseEntity.ok(response);
-                })
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Map<String, Object>> getWalletBalance(@PathVariable Long walletId, @AuthenticationPrincipal Long currentUserId) {
+        Optional<WalletDto> walletOpt = walletService.getWalletById(walletId);
+        if (walletOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        WalletDto wallet = walletOpt.get();
+        if (!wallet.getUserId().equals(currentUserId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("walletId", wallet.getId());
+        response.put("currency", wallet.getCurrency());
+        response.put("balance", wallet.getBalance());
+        response.put("symbol", wallet.getCurrency().getSymbol());
+        return ResponseEntity.ok(response);
     }
 
     /**
      * Get all balances for user
      */
     @GetMapping("/balances")
-    public ResponseEntity<List<Map<String, Object>>> getAllBalances(@RequestParam Long userId) {
+    public ResponseEntity<List<Map<String, Object>>> getAllBalances(@RequestParam Long userId, @AuthenticationPrincipal Long currentUserId) {
+        if (!userId.equals(currentUserId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         System.out.println("=== BALANCE REQUEST ===");
         System.out.println("User ID: " + userId);
         

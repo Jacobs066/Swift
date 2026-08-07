@@ -14,18 +14,15 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { getTransactionHistory, getTransactionSummary } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 import BottomNavBar from '../components/BottomNavBar';
 
 const TransactionHistoryScreen = () => {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { colors } = useTheme();
   const { t } = useTranslation();
-  
-  const isDarkMode = theme === 'dark';
-  const backgroundColor = isDarkMode ? '#000' : '#fff';
-  const textColor = isDarkMode ? '#fff' : '#333';
-  const cardColor = isDarkMode ? '#1c1c1e' : '#f6f6f6';
-  
+  const { user } = useAuth();
+
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,10 +40,10 @@ const TransactionHistoryScreen = () => {
   const loadTransactionData = async (page = 0, refresh = false) => {
     try {
       setLoading(true);
-      
-      // Get user ID from storage or context (you might need to implement this)
-      const userId = 1; // This should come from user context or storage
-      
+
+      const userId = user?.id;
+      if (!userId) return;
+
       // Load transaction history
       const historyData = await getTransactionHistory(userId, {
         page,
@@ -55,21 +52,21 @@ const TransactionHistoryScreen = () => {
         sortDir: 'desc',
         ...(selectedFilter !== 'all' && { status: selectedFilter })
       });
-      
+
       if (refresh || page === 0) {
         setTransactions(historyData.transactions || []);
       } else {
         setTransactions(prev => [...prev, ...(historyData.transactions || [])]);
       }
-      
+
       setCurrentPage(historyData.currentPage || 0);
       setHasMore(historyData.hasNext || false);
-      
+
       // Calculate totals from transactions
       const transactions = historyData.transactions || [];
       let received = 0;
       let sent = 0;
-      
+
       transactions.forEach(transaction => {
         if (transaction.isIncoming) {
           received += parseFloat(transaction.amount) || 0;
@@ -77,14 +74,14 @@ const TransactionHistoryScreen = () => {
           sent += parseFloat(transaction.amount) || 0;
         }
       });
-      
+
       setTotalReceived(received);
       setTotalSent(sent);
-      
+
       // Load transaction summary
       const summaryData = await getTransactionSummary(userId);
       setSummary(summaryData);
-      
+
     } catch (error) {
       // Only log once to avoid spam
       if (page === 0) {
@@ -166,13 +163,13 @@ const TransactionHistoryScreen = () => {
 
     // Then check by transaction type and direction
     if (isIncoming) {
-      return '#00E676'; // Green for incoming
+      return colors.success; // Green for incoming
     }
     switch (type) {
       case 'DEPOSIT':
-        return '#00E676';
+        return colors.success;
       case 'WITHDRAWAL':
-        return '#E040FB';
+        return colors.accent;
       case 'TRANSFER':
         return '#FF4081';
       case 'CURRENCY_EXCHANGE':
@@ -180,7 +177,7 @@ const TransactionHistoryScreen = () => {
       case 'PAYMENT':
         return '#FF6F61';
       default:
-        return '#800080';
+        return colors.accent;
     }
   };
 
@@ -219,15 +216,15 @@ const TransactionHistoryScreen = () => {
   const getStatusColor = (status) => {
     switch (status?.toUpperCase()) {
       case 'COMPLETED':
-        return '#00E676';
+        return colors.success;
       case 'PENDING':
         return '#FF9800';
       case 'FAILED':
-        return '#F44336';
+        return colors.error;
       case 'CANCELLED':
-        return '#9E9E9E';
+        return colors.textMuted;
       default:
-        return '#800080';
+        return colors.accent;
     }
   };
 
@@ -238,28 +235,28 @@ const TransactionHistoryScreen = () => {
   };
 
   const renderItem = ({ item }) => (
-    <View style={[styles.itemContainer, { backgroundColor: isDarkMode ? '#2b2b2b' : '#800080' }]}>
+    <View style={[styles.itemContainer, { backgroundColor: colors.surface }]}>
       <View style={[styles.iconWrapper, { backgroundColor: getTransactionColor(item.transactionType, item.isIncoming, item.description) }]}>
-        <Ionicons name={getTransactionIcon(item.transactionType, item.isIncoming, item.description)} size={24} color="#fff" />
+        <Ionicons name={getTransactionIcon(item.transactionType, item.isIncoming, item.description)} size={24} color={colors.accentText} />
       </View>
       <View style={styles.details}>
-        <Text style={[styles.title, { color: '#fff' }]}>{getDisplayType(item.transactionType, item.description, item.isIncoming)}</Text>
-        <Text style={[styles.sub, { color: isDarkMode ? '#ccc' : '#ddd' }]}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{getDisplayType(item.transactionType, item.description, item.isIncoming)}</Text>
+        <Text style={[styles.sub, { color: colors.textMuted }]}>
           {item.formattedDate} • {item.formattedTime}
         </Text>
         {item.description && (
-          <Text style={[styles.description, { color: isDarkMode ? '#ccc' : '#ddd' }]}>
+          <Text style={[styles.description, { color: colors.textMuted }]}>
             {item.description}
           </Text>
         )}
         <View style={styles.statusContainer}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status}</Text>
+            <Text style={[styles.statusText, { color: colors.accentText }]}>{item.status}</Text>
           </View>
         </View>
       </View>
       <View style={styles.rightSection}>
-        <Text style={[styles.amount, { color: '#fff' }]}>
+        <Text style={[styles.amount, { color: colors.textPrimary }]}>
           {formatAmount(item.amount, item.currency, item.isIncoming)}
         </Text>
       </View>
@@ -268,13 +265,23 @@ const TransactionHistoryScreen = () => {
 
   const renderFilterButton = (filter, label) => (
     <TouchableOpacity
-      style={[styles.filterBtn, selectedFilter === filter && styles.filterBtnActive]}
+      style={[
+        styles.filterBtn,
+        { backgroundColor: colors.surface },
+        selectedFilter === filter && { backgroundColor: colors.accent },
+      ]}
       onPress={() => {
         setSelectedFilter(filter);
         loadTransactionData(0, true);
       }}
     >
-      <Text style={[styles.filterText, selectedFilter === filter && styles.filterTextActive]}>
+      <Text
+        style={[
+          styles.filterText,
+          { color: colors.textMuted },
+          selectedFilter === filter && { color: colors.accentText },
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -282,10 +289,10 @@ const TransactionHistoryScreen = () => {
 
   if (loading && transactions.length === 0) {
     return (
-      <View style={[styles.container, { backgroundColor: isDarkMode ? '#121212' : '#f3ecf3ff' }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#800080" />
-          <Text style={[styles.loadingText, { color: isDarkMode ? '#fff' : '#000' }]}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.textPrimary }]}>
             Loading transactions...
           </Text>
         </View>
@@ -296,27 +303,27 @@ const TransactionHistoryScreen = () => {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={[styles.container, { backgroundColor: isDarkMode ? '#121212' : '#f3ecf3ff' }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+          <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
         </TouchableOpacity>
 
-        <Text style={[styles.header, { color: '#800080' }]}>Transaction History</Text>
-        <Text style={[styles.subHeader, { color: '#800080' }]}>
+        <Text style={[styles.header, { color: colors.textPrimary }]}>Transaction History</Text>
+        <Text style={[styles.subHeader, { color: colors.textMuted }]}>
           {summary.currentMonth || 'Current Month'}
         </Text>
 
         {/* Total Amounts */}
         <View style={styles.totalAmountsContainer}>
-          <View style={[styles.totalAmountCard, { backgroundColor: isDarkMode ? '#1c1c1e' : '#fff' }]}>
-            <Text style={[styles.totalAmountLabel, { color: isDarkMode ? '#fff' : '#333' }]}>Total Received</Text>
-            <Text style={[styles.totalAmountValue, { color: '#00E676' }]}>
+          <View style={[styles.totalAmountCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.totalAmountLabel, { color: colors.textPrimary }]}>Total Received</Text>
+            <Text style={[styles.totalAmountValue, { color: colors.success }]}>
               {summary.currencySymbol || '₵'}{totalReceived.toFixed(2)}
             </Text>
           </View>
-          <View style={[styles.totalAmountCard, { backgroundColor: isDarkMode ? '#1c1c1e' : '#fff' }]}>
-            <Text style={[styles.totalAmountLabel, { color: isDarkMode ? '#fff' : '#333' }]}>Total Sent Out</Text>
-            <Text style={[styles.totalAmountValue, { color: '#F44336' }]}>
+          <View style={[styles.totalAmountCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.totalAmountLabel, { color: colors.textPrimary }]}>Total Sent Out</Text>
+            <Text style={[styles.totalAmountValue, { color: colors.error }]}>
               {summary.currencySymbol || '₵'}{totalSent.toFixed(2)}
             </Text>
           </View>
@@ -331,13 +338,13 @@ const TransactionHistoryScreen = () => {
         </View>
 
         <View style={styles.summaryBoxes}>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryNumber}>{transactions.length}</Text>
-            <Text style={styles.summaryLabel}>Transactions</Text>
+          <View style={[styles.summaryBox, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.summaryNumber, { color: colors.textPrimary }]}>{transactions.length}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Transactions</Text>
           </View>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryNumber}>{summary.totalCategories || 0}</Text>
-            <Text style={styles.summaryLabel}>Categories</Text>
+          <View style={[styles.summaryBox, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.summaryNumber, { color: colors.textPrimary }]}>{summary.totalCategories || 0}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Categories</Text>
           </View>
         </View>
 
@@ -353,27 +360,27 @@ const TransactionHistoryScreen = () => {
           onEndReachedThreshold={0.1}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="document-outline" size={64} color="#999" />
-              <Text style={[styles.emptyTitle, { color: isDarkMode ? '#fff' : '#333' }]}>
+              <Ionicons name="document-outline" size={64} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                 No Transactions Yet
               </Text>
-              <Text style={[styles.emptyText, { color: isDarkMode ? '#ccc' : '#666' }]}>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 Your transaction history will appear here once you start making deposits, withdrawals, transfers, or other transactions.
               </Text>
               <View style={styles.emptyActions}>
-                <TouchableOpacity 
-                  style={[styles.emptyActionBtn, { backgroundColor: '#800080' }]}
+                <TouchableOpacity
+                  style={[styles.emptyActionBtn, { backgroundColor: colors.accent }]}
                   onPress={() => router.push('/screens/Deposit')}
                 >
-                  <Ionicons name="cash-outline" size={20} color="#fff" />
-                  <Text style={styles.emptyActionText}>Make a Deposit</Text>
+                  <Ionicons name="cash-outline" size={20} color={colors.accentText} />
+                  <Text style={[styles.emptyActionText, { color: colors.accentText }]}>Make a Deposit</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.emptyActionBtn, { backgroundColor: '#f0f0f0' }]}
+                <TouchableOpacity
+                  style={[styles.emptyActionBtn, { backgroundColor: colors.surface }]}
                   onPress={() => router.push('/screens/Convert')}
                 >
-                  <Ionicons name="swap-horizontal-outline" size={20} color="#666" />
-                  <Text style={[styles.emptyActionText, { color: '#666' }]}>Transfer Money</Text>
+                  <Ionicons name="swap-horizontal-outline" size={20} color={colors.textMuted} />
+                  <Text style={[styles.emptyActionText, { color: colors.textMuted }]}>Transfer Money</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -423,18 +430,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f0f0f0',
   },
-  filterBtnActive: {
-    backgroundColor: '#800080',
-  },
+  filterBtnActive: {},
   filterText: {
-    color: '#666',
     fontWeight: '600',
   },
-  filterTextActive: {
-    color: '#fff',
-  },
+  filterTextActive: {},
   summaryBoxes: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -442,7 +443,6 @@ const styles = StyleSheet.create({
   },
   summaryBox: {
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 15,
     borderRadius: 10,
     minWidth: 100,
@@ -450,11 +450,9 @@ const styles = StyleSheet.create({
   summaryNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#800080',
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#666',
     marginTop: 5,
   },
   itemContainer: {
@@ -504,7 +502,6 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    color: '#fff',
     fontWeight: '600',
   },
   rightSection: {
@@ -582,4 +579,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TransactionHistoryScreen; 
+export default TransactionHistoryScreen;

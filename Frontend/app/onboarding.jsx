@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from './context/ThemeContext'; // 👈 your dark mode context
+import { useTheme } from './context/ThemeContext';
+import Button from './components/Button';
+import DotIndicator from './components/DotIndicator';
 
 const slides = [
   {
@@ -28,8 +30,7 @@ const slides = [
 const OnboardingScreen = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const { colors, spacing, typography } = useTheme();
 
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
@@ -45,85 +46,55 @@ const OnboardingScreen = () => {
     }
   };
 
-  const colors = {
-    background: isDark ? '#000' : '#fff',
-    text: isDark ? '#fff' : '#800080',
-    subtitle: isDark ? '#ccc' : '#888',
-    dotActive: '#800080',
-    dotInactive: isDark ? '#444' : '#ccc',
-    border: '#800080',
-    buttonText: '#fff',
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Skip Button */}
       {currentSlide < slides.length && (
         <TouchableOpacity
           style={styles.skipButton}
           onPress={() => router.push('/screens/SignUpScreen')}
         >
-          <Text style={[styles.skipText, { color: colors.text }]}>SKIP</Text>
+          <Text style={[styles.skipText, { color: colors.textMuted }]}>SKIP</Text>
         </TouchableOpacity>
       )}
 
-      {/* Slide Image */}
-      <Ionicons name={slides[currentSlide].icon} size={220} color={colors.text} />
+      <Ionicons name={slides[currentSlide].icon} size={200} color={colors.accent} />
 
-      {/* Slide Text */}
-      <Text style={[styles.title, { color: colors.text }]}>{slides[currentSlide].title}</Text>
-      <Text style={[styles.subtitle, { color: colors.subtitle }]}>
+      <Text style={[typography.title, styles.title, { color: colors.textPrimary }]}>
+        {slides[currentSlide].title}
+      </Text>
+      <Text style={[typography.body, styles.subtitle, { color: colors.textMuted }]}>
         {slides[currentSlide].subtitle}
       </Text>
 
-      {/* Pagination Dots */}
-      <View style={styles.dotsContainer}>
-        {slides.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              {
-                backgroundColor: currentSlide === index ? colors.dotActive : colors.dotInactive,
-              },
-            ]}
-          />
-        ))}
-      </View>
+      <DotIndicator total={slides.length} currentIndex={currentSlide} />
 
-      {/* Navigation Buttons */}
       <View style={styles.navButtons}>
         {currentSlide > 0 && (
           <TouchableOpacity style={styles.iconButton} onPress={handleBack}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
+            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.iconButton} onPress={handleNext}>
           <Ionicons
             name={currentSlide === slides.length - 1 ? 'checkmark' : 'arrow-forward'}
             size={20}
-            color={colors.text}
+            color={colors.textPrimary}
           />
         </TouchableOpacity>
       </View>
 
-      {/* Continue Button */}
-      <TouchableOpacity
-        style={[styles.primaryButton, { backgroundColor: colors.text }]}
+      <Button
+        title={currentSlide === slides.length - 1 ? 'Continue' : 'Create a new profile'}
         onPress={handleNext}
-      >
-        <Text style={[styles.buttonText, { color: colors.buttonText }]}>
-          {currentSlide === slides.length - 1 ? 'Continue' : 'Create a new profile'}
-        </Text>
-      </TouchableOpacity>
+        style={{ width: '100%', marginBottom: spacing.sm }}
+      />
 
-      {/* Already Have a Profile */}
-      <TouchableOpacity
-        style={[styles.secondaryButton, { borderColor: colors.border }]}
+      <Button
+        title="I already have a profile"
+        variant="secondary"
         onPress={() => router.push('/screens/LoginScreen')}
-      >
-        <Text style={[styles.secondaryText, { color: colors.text }]}>I already have a profile</Text>
-      </TouchableOpacity>
+        style={{ width: '100%' }}
+      />
     </View>
   );
 };
@@ -145,31 +116,14 @@ const styles = StyleSheet.create({
   skipText: {
     fontWeight: 'bold',
   },
-  image: {
-    width: 220,
-    height: 220,
-    marginBottom: 30,
-  },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
     textAlign: 'center',
+    marginTop: 24,
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 14,
     textAlign: 'center',
     marginHorizontal: 20,
-  },
-  dotsContainer: {
-    flexDirection: 'row',
-    marginVertical: 20,
-  },
-  dot: {
-    height: 6,
-    width: 20,
-    borderRadius: 3,
-    marginHorizontal: 4,
   },
   navButtons: {
     flexDirection: 'row',
@@ -178,26 +132,5 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 10,
-  },
-  primaryButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  buttonText: {
-    fontWeight: 'bold',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    width: '100%',
-    alignItems: 'center',
-  },
-  secondaryText: {
-    fontWeight: 'bold',
   },
 });

@@ -16,11 +16,11 @@ import { useWallet } from '../context/WalletContext';
 
 export default function WalletScreen() {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const { balances } = useWallet();
   const [visible, setVisible] = useState({ USD: true, EUR: true, GBP: true });
 
-  const themedStyles = getStyles(isDarkMode);
+  const themedStyles = getStyles(colors);
 
   const walletList = [
     { currency: 'USD', symbol: '$', display: 'US Dollar' },
@@ -37,13 +37,13 @@ export default function WalletScreen() {
       <View style={themedStyles.container}>
         <View style={themedStyles.header}>
           <TouchableOpacity style={themedStyles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+            <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
           </TouchableOpacity>
           <Text style={themedStyles.title}>My Wallet</Text>
         </View>
         <ScrollView contentContainerStyle={themedStyles.scrollContent}>
           {walletList.map((wallet) => (
-            <View key={wallet.currency} style={[themedStyles.card, { backgroundColor: '#800080' }]}> 
+            <View key={wallet.currency} style={[themedStyles.card, { backgroundColor: colors.accent }]}>
               <Text style={themedStyles.cardTitle}>{wallet.display}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Text style={themedStyles.cardBalance}>
@@ -53,7 +53,7 @@ export default function WalletScreen() {
                   <Ionicons
                     name={visible[wallet.currency] ? 'eye-outline' : 'eye-off-outline'}
                     size={22}
-                    color="#fff"
+                    color={colors.accentText}
                   />
                 </TouchableOpacity>
                   </View>
@@ -77,10 +77,10 @@ export default function WalletScreen() {
   );
 }
 
-const getStyles = (isDarkMode) => {
+const getStyles = (colors) => {
   const shadow = Platform.select({
     ios: {
-      shadowColor: '#800080',
+      shadowColor: colors.accent,
       shadowOpacity: 0.1,
       shadowRadius: 6,
       shadowOffset: { height: 3, width: 0 },
@@ -93,7 +93,7 @@ const getStyles = (isDarkMode) => {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: isDarkMode ? '#121212' : '#f6f6f6',
+      backgroundColor: colors.background,
       paddingTop: 60,
     },
     header: {
@@ -107,7 +107,7 @@ const getStyles = (isDarkMode) => {
     },
     title: {
       fontSize: 24,
-      color: '#800080',
+      color: colors.accent,
       fontWeight: 'bold',
       textAlign: 'center',
     },
@@ -122,19 +122,19 @@ const getStyles = (isDarkMode) => {
       ...shadow,
     },
     cardTitle: {
-      color: '#f6f6f6',
+      color: colors.accentText,
       fontSize: 18,
       fontWeight: '600',
       marginBottom: 8,
     },
     cardBalance: {
       fontSize: 28,
-      color: '#fff',
+      color: colors.accentText,
       fontWeight: 'bold',
       marginBottom: 16,
     },
     transferButton: {
-      backgroundColor: '#fff',
+      backgroundColor: colors.surface,
       borderRadius: 10,
       paddingVertical: 10,
       paddingHorizontal: 20,
@@ -142,7 +142,7 @@ const getStyles = (isDarkMode) => {
       marginTop: 10,
     },
     transferButtonText: {
-      color: '#800080',
+      color: colors.accent,
       fontSize: 16,
       fontWeight: 'bold',
     },

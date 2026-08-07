@@ -2,6 +2,8 @@ package com.swift.wallet.service;
 
 import com.swift.auth.models.User;
 import com.swift.auth.repository.UserRepository;
+import com.swift.notification.enums.NotificationType;
+import com.swift.notification.service.NotificationService;
 import com.swift.wallet.dto.TransferRequest;
 import com.swift.wallet.dto.WalletDto;
 import com.swift.wallet.enums.CurrencyType;
@@ -33,6 +35,9 @@ public class WalletService {
 
     @Autowired
     private ExchangeRateService exchangeRateService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * Create wallets for a new user
@@ -161,10 +166,14 @@ public class WalletService {
 
         // Create transactions
         String reference = "TRANSFER_" + System.currentTimeMillis();
-        transactionService.createTransaction(fromWallet, TransactionType.TRANSFER, request.getAmount().negate(), 
+        Transaction outTransaction = transactionService.createTransaction(fromWallet, TransactionType.TRANSFER, request.getAmount().negate(),
                          request.getFromCurrency(), "Transfer to " + toWallet.getCurrency(), reference + "_OUT");
-        transactionService.createTransaction(toWallet, TransactionType.TRANSFER, request.getAmount(), 
+        transactionService.createTransaction(toWallet, TransactionType.TRANSFER, request.getAmount(),
                          request.getToCurrency(), "Transfer from " + fromWallet.getCurrency(), reference + "_IN");
+
+        notificationService.createNotification(fromWallet.getUser(), NotificationType.TRANSFER, "Interwallet transfer",
+                "Moved " + request.getAmount() + " " + request.getFromCurrency() + " to your " + request.getToCurrency() + " wallet",
+                outTransaction.getId());
 
         return true;
     }
@@ -194,12 +203,16 @@ public class WalletService {
         fromTransaction.setConvertedAmount(convertedAmount);
         fromTransaction.setConvertedCurrency(toWallet.getCurrency());
 
-        Transaction toTransaction = transactionService.createTransaction(toWallet, TransactionType.CURRENCY_EXCHANGE, 
+        Transaction toTransaction = transactionService.createTransaction(toWallet, TransactionType.CURRENCY_EXCHANGE,
                                                      convertedAmount, toWallet.getCurrency(),
                                                      "Currency exchange from " + fromWallet.getCurrency(), reference + "_IN");
         toTransaction.setExchangeRate(exchangeRate);
         toTransaction.setConvertedAmount(request.getAmount());
         toTransaction.setConvertedCurrency(request.getFromCurrency());
+
+        notificationService.createNotification(fromWallet.getUser(), NotificationType.CURRENCY_EXCHANGE, "Currency exchange",
+                "Converted " + request.getAmount() + " " + request.getFromCurrency() + " to " + convertedAmount + " " + toWallet.getCurrency(),
+                fromTransaction.getId());
 
         return true;
     }
@@ -223,24 +236,61 @@ public class WalletService {
      * Allocate funds to a specific wallet
      */
     public void allocateFundsToWallet(Long userId, CurrencyType currency, BigDecimal amount) {
+        allocateFundsToWallet(userId, currency, amount, "Fund allocation", "ALLOCATION_" + System.currentTimeMillis());
+    }
+
+    /**
+     * Allocate funds to a specific wallet with a caller-supplied description/reference
+     * (e.g. the real Paystack reference for a verified deposit).
+     */
+    public void allocateFundsToWallet(Long userId, CurrencyType currency, BigDecimal amount, String description, String reference) {
         System.out.println("Allocating " + amount + " " + currency + " to user " + userId);
-        
-        Optional<Wallet> walletOpt = walletRepository.findUserWalletByCurrency(userId, currency);
-        if (walletOpt.isEmpty()) {
-            throw new RuntimeException("Wallet not found for user " + userId + " and currency " + currency);
-        }
-        
-        Wallet wallet = walletOpt.get();
+
+        Wallet wallet = walletRepository.findUserWalletByCurrency(userId, currency)
+                .orElseThrow(() -> new RuntimeException("Wallet not found for user " + userId + " and currency " + currency));
+
         BigDecimal oldBalance = wallet.getBalance();
         wallet.setBalance(wallet.getBalance().add(amount));
         walletRepository.save(wallet);
-        
-        System.out.println("Wallet updated - User: " + userId + ", Currency: " + currency + 
+
+        System.out.println("Wallet updated - User: " + userId + ", Currency: " + currency +
                          ", Old Balance: " + oldBalance + ", New Balance: " + wallet.getBalance());
-        
-        // Create allocation transaction
-        String reference = "ALLOCATION_" + System.currentTimeMillis();
-        transactionService.createTransaction(wallet, TransactionType.DEPOSIT, amount, currency, 
-                                         "Fund allocation", reference);
+
+        Transaction transaction = transactionService.createTransaction(wallet, TransactionType.DEPOSIT, amount, currency, description, reference);
+        notificationService.createNotification(wallet.getUser(), NotificationType.DEPOSIT, "Deposit successful",
+                "Your " + currency + " wallet was credited with " + amount, transaction.getId());
     }
-} 
+
+    /**
+     * Throws if the user's wallet for the given currency doesn't exist or can't cover the amount.
+     * Meant to be called before any external payment-provider call, so a request that can't be
+     * fulfilled never reaches Paystack.
+     */
+    public void ensureSufficientBalance(Long userId, CurrencyType currency, BigDecimal amount) {
+        Wallet wallet = walletRepository.findUserWalletByCurrency(userId, currency)
+                .orElseThrow(() -> new RuntimeException("Wallet not found for user " + userId + " and currency " + currency));
+        if (wallet.getBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient balance in " + currency + " wallet. Available: " + wallet.getBalance() + ", Required: " + amount);
+        }
+    }
+
+    /**
+     * Debit a user's wallet and record the transaction. Meant to be called only after an
+     * external payment-provider call (e.g. Paystack transfer) has already succeeded.
+     */
+    public void debitWallet(Long userId, CurrencyType currency, BigDecimal amount, TransactionType type, String description, String reference) {
+        Wallet wallet = walletRepository.findUserWalletByCurrency(userId, currency)
+                .orElseThrow(() -> new RuntimeException("Wallet not found for user " + userId + " and currency " + currency));
+        if (wallet.getBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient balance in " + currency + " wallet. Available: " + wallet.getBalance() + ", Required: " + amount);
+        }
+        wallet.setBalance(wallet.getBalance().subtract(amount));
+        walletRepository.save(wallet);
+        Transaction transaction = transactionService.createTransaction(wallet, type, amount.negate(), currency, description, reference);
+
+        NotificationType notificationType = type == TransactionType.WITHDRAWAL ? NotificationType.WITHDRAWAL : NotificationType.SEND;
+        String title = type == TransactionType.WITHDRAWAL ? "Withdrawal successful" : "Send successful";
+        notificationService.createNotification(wallet.getUser(), notificationType, title,
+                "Your " + currency + " wallet was debited " + amount + " - " + description, transaction.getId());
+    }
+}

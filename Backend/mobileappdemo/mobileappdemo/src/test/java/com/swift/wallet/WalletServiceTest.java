@@ -2,6 +2,7 @@ package com.swift.wallet;
 
 import com.swift.auth.models.User;
 import com.swift.auth.repository.UserRepository;
+import com.swift.notification.service.NotificationService;
 import com.swift.wallet.dto.TransferRequest;
 import com.swift.wallet.dto.WalletDto;
 import com.swift.wallet.enums.CurrencyType;
@@ -46,6 +47,9 @@ class WalletServiceTest {
     @Mock
     private ExchangeRateService exchangeRateService;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private WalletService walletService;
 
@@ -78,7 +82,7 @@ class WalletServiceTest {
     void testGetUserWallets() {
         // Arrange
         List<Wallet> wallets = Arrays.asList(ghsWallet, usdWallet, eurWallet);
-        when(walletRepository.findUserWalletsOrdered(1L)).thenReturn(wallets);
+        when(walletRepository.findByUserId(1L)).thenReturn(wallets);
 
         // Act
         List<WalletDto> result = walletService.getUserWallets(1L);
@@ -137,83 +141,67 @@ class WalletServiceTest {
 
     @Test
     void testTransferMoneySameCurrency() {
-        // Arrange
-        Long senderId = 10L;
-        Long receiverId = 20L;
-        Wallet senderWallet = new Wallet(testUser, CurrencyType.USD, true);
-        senderWallet.setId(senderId);
-        senderWallet.setBalance(BigDecimal.valueOf(1000.00));
-        Wallet receiverWallet = new Wallet(testUser, CurrencyType.USD, false);
-        receiverWallet.setId(receiverId);
-        receiverWallet.setBalance(BigDecimal.valueOf(500.00));
-        TransferRequest request = new TransferRequest(senderWallet.getCurrency(), receiverWallet.getCurrency(), BigDecimal.valueOf(100.00), "Test transfer");
-        when(walletRepository.findById(senderId)).thenReturn(Optional.of(senderWallet));
-        when(walletRepository.findById(receiverId)).thenReturn(Optional.of(receiverWallet));
-        when(exchangeRateService.getExchangeRate(senderWallet.getCurrency(), receiverWallet.getCurrency())).thenReturn(BigDecimal.ONE);
-        when(transactionService.createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
-                                                any(BigDecimal.class), any(CurrencyType.class), 
+        // Arrange: fromCurrency == toCurrency resolves to the SAME wallet for this user,
+        // so the net balance change should be zero while still recording two transactions.
+        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.GHS, BigDecimal.valueOf(100.00), "Self transfer");
+        request.setUserId(1L);
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.GHS)).thenReturn(Optional.of(ghsWallet));
+        when(transactionService.createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class),
+                                                any(BigDecimal.class), any(CurrencyType.class),
                                                 anyString(), anyString())).thenReturn(new Transaction());
         // Act
         boolean result = walletService.transferMoney(request);
         // Assert
         assertTrue(result);
         verify(walletRepository, times(2)).save(any(com.swift.wallet.models.Wallet.class));
-        verify(transactionService, times(2)).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
-                                                              any(BigDecimal.class), any(CurrencyType.class), 
+        verify(transactionService, times(2)).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class),
+                                                              any(BigDecimal.class), any(CurrencyType.class),
                                                               anyString(), anyString());
-        // Verify balances were updated correctly
-        assertEquals(BigDecimal.valueOf(900.00), senderWallet.getBalance());
-        assertEquals(BigDecimal.valueOf(600.00), receiverWallet.getBalance());
+        assertEquals(BigDecimal.valueOf(1000.00), ghsWallet.getBalance());
     }
 
     @Test
     void testTransferMoneyCrossCurrency() {
-        // Arrange
-        Long senderId = 11L;
-        Long receiverId = 21L;
-        Wallet senderWallet = new Wallet(testUser, CurrencyType.GHS, true);
-        senderWallet.setId(senderId);
-        senderWallet.setBalance(BigDecimal.valueOf(1000.00));
-        Wallet receiverWallet = new Wallet(testUser, CurrencyType.USD, false);
-        receiverWallet.setId(receiverId);
-        receiverWallet.setBalance(BigDecimal.valueOf(500.00));
-        TransferRequest request = new TransferRequest(senderWallet.getCurrency(), receiverWallet.getCurrency(), BigDecimal.valueOf(100.00), "Cross currency transfer");
-        when(walletRepository.findById(senderId)).thenReturn(Optional.of(senderWallet));
-        when(walletRepository.findById(receiverId)).thenReturn(Optional.of(receiverWallet));
-        when(exchangeRateService.getExchangeRate(senderWallet.getCurrency(), receiverWallet.getCurrency()))
+        // Arrange: transfer between this user's own GHS and USD wallets (set up in setUp()).
+        TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Cross currency transfer");
+        request.setUserId(1L);
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.GHS)).thenReturn(Optional.of(ghsWallet));
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.USD)).thenReturn(Optional.of(usdWallet));
+        when(exchangeRateService.getExchangeRate(CurrencyType.GHS, CurrencyType.USD))
                 .thenReturn(BigDecimal.valueOf(0.12)); // 1 GHS = 0.12 USD
-        when(transactionService.createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
-                                                any(BigDecimal.class), any(CurrencyType.class), 
+        when(transactionService.createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class),
+                                                any(BigDecimal.class), any(CurrencyType.class),
                                                 anyString(), anyString())).thenReturn(new Transaction());
         // Act
         boolean result = walletService.transferMoney(request);
         // Assert
         assertTrue(result);
         verify(walletRepository, times(2)).save(any(com.swift.wallet.models.Wallet.class));
-        verify(transactionService, times(2)).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
-                                                              any(BigDecimal.class), any(CurrencyType.class), 
+        verify(transactionService, times(2)).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class),
+                                                              any(BigDecimal.class), any(CurrencyType.class),
                                                               anyString(), anyString());
-        verify(exchangeRateService).getExchangeRate(senderWallet.getCurrency(), receiverWallet.getCurrency());
+        verify(exchangeRateService).getExchangeRate(CurrencyType.GHS, CurrencyType.USD);
         // Verify balances were updated correctly
-        assertEquals(BigDecimal.valueOf(900.00), senderWallet.getBalance());
-        assertEquals(0, receiverWallet.getBalance().compareTo(BigDecimal.valueOf(512.00)));
+        assertEquals(BigDecimal.valueOf(900.00), ghsWallet.getBalance());
+        assertEquals(0, usdWallet.getBalance().compareTo(BigDecimal.valueOf(512.00)));
     }
 
     @Test
     void testTransferMoneyInsufficientBalance() {
         // Arrange
         TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(2000.00), "Large transfer");
-        // Only stub the sender wallet, as the exception is thrown before the receiver is needed
-        when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
+        request.setUserId(1L);
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.GHS)).thenReturn(Optional.of(ghsWallet));
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.USD)).thenReturn(Optional.of(usdWallet));
 
         // Act & Assert
         assertThrows(RuntimeException.class, () -> {
             walletService.transferMoney(request);
         });
-        
+
         verify(walletRepository, never()).save(any(com.swift.wallet.models.Wallet.class));
-        verify(transactionService, never()).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
-                                                             any(BigDecimal.class), any(CurrencyType.class), 
+        verify(transactionService, never()).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class),
+                                                             any(BigDecimal.class), any(CurrencyType.class),
                                                              anyString(), anyString());
     }
 
@@ -221,40 +209,43 @@ class WalletServiceTest {
     void testTransferMoneyWalletNotFound() {
         // Arrange
         TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Invalid transfer");
-        // Only mock the missing wallet as needed
-        when(walletRepository.findById(999L)).thenReturn(Optional.empty());
+        request.setUserId(1L);
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.GHS)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(RuntimeException.class, () -> {
             walletService.transferMoney(request);
         });
-        
+
         verify(walletRepository, never()).save(any(com.swift.wallet.models.Wallet.class));
-        verify(transactionService, never()).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
-                                                             any(BigDecimal.class), any(CurrencyType.class), 
+        verify(transactionService, never()).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class),
+                                                             any(BigDecimal.class), any(CurrencyType.class),
                                                              anyString(), anyString());
     }
 
     @Test
     void testTransferMoneyDifferentUsers() {
-        // Arrange
+        // Arrange: defensive-guard test. The repository query is keyed by userId in production,
+        // so this scenario can't occur via the real query - but the ownership check in
+        // transferMoneyByWallets is exercised here via mocked wallets with mismatched owners.
         User otherUser = new User();
         otherUser.setId(2L);
         Wallet otherWallet = new Wallet(otherUser, CurrencyType.USD, false);
         otherWallet.setId(4L);
+        otherWallet.setBalance(BigDecimal.valueOf(500.00));
         TransferRequest request = new TransferRequest(CurrencyType.GHS, CurrencyType.USD, BigDecimal.valueOf(100.00), "Cross user transfer");
-        // Only stub the sender and receiver wallets as needed
-        when(walletRepository.findById(1L)).thenReturn(Optional.of(ghsWallet));
-        when(walletRepository.findById(4L)).thenReturn(Optional.of(otherWallet));
+        request.setUserId(1L);
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.GHS)).thenReturn(Optional.of(ghsWallet));
+        when(walletRepository.findUserWalletByCurrency(1L, CurrencyType.USD)).thenReturn(Optional.of(otherWallet));
 
         // Act & Assert
         assertThrows(RuntimeException.class, () -> {
             walletService.transferMoney(request);
         });
-        
+
         verify(walletRepository, never()).save(any(com.swift.wallet.models.Wallet.class));
-        verify(transactionService, never()).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class), 
-                                                             any(BigDecimal.class), any(CurrencyType.class), 
+        verify(transactionService, never()).createTransaction(any(com.swift.wallet.models.Wallet.class), any(TransactionType.class),
+                                                             any(BigDecimal.class), any(CurrencyType.class),
                                                              anyString(), anyString());
     }
 } 

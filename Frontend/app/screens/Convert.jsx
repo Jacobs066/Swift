@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Platform,
   KeyboardAvoidingView,
@@ -14,14 +13,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { getTransferRates, performInterwalletTransfer } from '../utils/api';
+import { getTransferRates } from '../utils/api';
 import { useWallet } from '../context/WalletContext';
+import TextInput from '../components/TextInput';
+import Button from '../components/Button';
+import Card from '../components/Card';
 
 const wallets = ['GHS', 'USD', 'EUR', 'GBP'];
 
 const ConvertScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const { transfer, balances } = useWallet();
 
   const [fromWallet, setFromWallet] = useState('GHS');
@@ -39,8 +41,13 @@ const ConvertScreen = () => {
   const loadTransferRates = async () => {
     try {
       setLoading(true);
-      const rates = await getTransferRates();
-      setTransferRates(rates);
+      const response = await getTransferRates();
+      const nested = {};
+      (response.rates || []).forEach((r) => {
+        if (!nested[r.fromCurrency]) nested[r.fromCurrency] = {};
+        nested[r.fromCurrency][r.toCurrency] = r.rate;
+      });
+      setTransferRates(nested);
     } catch (error) {
       Alert.alert('Error', 'Failed to load transfer rates: ' + error.toString());
       // Fallback to hardcoded rates if API fails
@@ -65,13 +72,6 @@ const ConvertScreen = () => {
     setConverted(result);
   };
 
-  const customRates = {
-    USD: { GHS: 10.8 },
-    EUR: { GHS: 18.5 },
-    GBP: { GHS: 15 },
-    GHS: { USD: 1 / 10.8, EUR: 1 / 18.5, GBP: 1 / 15 },
-  };
-
   const handleTransfer = async () => {
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       Alert.alert('Invalid amount');
@@ -81,23 +81,19 @@ const ConvertScreen = () => {
       Alert.alert('Insufficient funds');
       return;
     }
-    
+
     try {
       setProcessing(true);
-      
-      // Use the new transfer function (exchange rate is calculated internally)
-      transfer(fromWallet, toWallet, Number(amount));
-      
-      Alert.alert('Transfer Successful', `${amount} ${fromWallet} transferred to ${toWallet}!`, [
-        {
-          text: 'OK',
-          onPress: () => router.push('/screens/HomeScreen'),
-        },
-      ]);
-      setTimeout(() => {
-        router.push('/screens/HomeScreen');
-      }, 1500);
-      
+
+      const response = await transfer(fromWallet, toWallet, Number(amount));
+
+      if (response.success) {
+        Alert.alert('Transfer Successful', `${amount} ${fromWallet} transferred to ${toWallet}!`, [
+          { text: 'OK', onPress: () => router.push('/screens/HomeScreen') },
+        ]);
+      } else {
+        Alert.alert('Error', response.message || 'Failed to process transfer');
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to process transfer: ' + error.toString());
     } finally {
@@ -105,35 +101,31 @@ const ConvertScreen = () => {
     }
   };
 
-  const backgroundColor = isDarkMode ? '#121212' : '#fff';
-  const textColor = isDarkMode ? '#fff' : '#000';
-  const cardColor = isDarkMode ? '#1e1e1e' : '#f2f2f2';
-
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#800080" />
-        <Text style={[styles.loadingText, { color: textColor }]}>Loading transfer rates...</Text>
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={[styles.loadingText, { color: colors.textPrimary }]}>Loading transfer rates...</Text>
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor }]}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+          <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
         </TouchableOpacity>
 
-        <Text style={[styles.title, { color: textColor}]}>Intertransfer Wallet</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Intertransfer Wallet</Text>
 
         {/* Wallet Selector */}
-        <View style={[styles.card, { backgroundColor: cardColor }]}>
-          <Text style={[styles.label, { color: textColor }]}>From:</Text>
+        <Card>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>From:</Text>
           <View style={styles.row}>
             {wallets.map((wallet) =>
               wallet !== toWallet ? (
@@ -141,17 +133,18 @@ const ConvertScreen = () => {
                   key={wallet}
                   style={[
                     styles.walletBtn,
-                    fromWallet === wallet && styles.selected,
+                    { backgroundColor: colors.border },
+                    fromWallet === wallet && { backgroundColor: colors.accent },
                   ]}
                   onPress={() => setFromWallet(wallet)}
                 >
-                  <Text style={styles.walletText}>{wallet}</Text>
+                  <Text style={[styles.walletText, { color: fromWallet === wallet ? colors.accentText : colors.textPrimary }]}>{wallet}</Text>
                 </TouchableOpacity>
               ) : null
             )}
           </View>
 
-          <Text style={[styles.label, { color: textColor, marginTop: 16 }]}>To:</Text>
+          <Text style={[styles.label, { color: colors.textPrimary, marginTop: 16 }]}>To:</Text>
           <View style={styles.row}>
             {wallets.map((wallet) =>
               wallet !== fromWallet ? (
@@ -159,11 +152,12 @@ const ConvertScreen = () => {
                   key={wallet}
                   style={[
                     styles.walletBtn,
-                    toWallet === wallet && styles.selected,
+                    { backgroundColor: colors.border },
+                    toWallet === wallet && { backgroundColor: colors.accent },
                   ]}
                   onPress={() => setToWallet(wallet)}
                 >
-                  <Text style={styles.walletText}>{wallet}</Text>
+                  <Text style={[styles.walletText, { color: toWallet === wallet ? colors.accentText : colors.textPrimary }]}>{wallet}</Text>
                 </TouchableOpacity>
               ) : null
             )}
@@ -172,40 +166,31 @@ const ConvertScreen = () => {
           {/* Amount input */}
           <TextInput
             placeholder="Enter amount"
-            placeholderTextColor="#999"
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
           />
 
           {/* Convert Button */}
-          <TouchableOpacity style={styles.convertBtn} onPress={handleConvert}>
-            <Text style={styles.convertText}>Convert</Text>
-          </TouchableOpacity>
+          <Button title="Convert" onPress={handleConvert} style={{ marginTop: 24 }} />
 
           {/* Result */}
           {converted && (
-            <Text style={[styles.resultText, { color: textColor }]}>
+            <Text style={[styles.resultText, { color: colors.textPrimary }]}>
               {amount} {fromWallet} = {converted} {toWallet}
             </Text>
           )}
 
           {/* Transfer Button */}
           {converted && (
-            <TouchableOpacity 
-              style={[styles.transferBtn, processing && styles.disabledBtn]} 
+            <Button
+              title="Transfer"
               onPress={handleTransfer}
-              disabled={processing}
-            >
-              {processing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.transferText}>Transfer</Text>
-              )}
-            </TouchableOpacity>
+              loading={processing}
+              style={[{ backgroundColor: colors.success }, { marginTop: 16 }]}
+            />
           )}
-        </View>
+        </Card>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -229,21 +214,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
   },
-  card: {
-    borderRadius: 16,
-    padding: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 4 },
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -255,56 +225,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   walletBtn: {
-    backgroundColor: '#80008020',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
     marginRight: 10,
     marginBottom: 10,
   },
-  selected: {
-    backgroundColor: '#800080',
-  },
   walletText: {
-    color: '#fff',
     fontWeight: '600',
-  },
-  input: {
-    borderBottomWidth: 1,
-    marginTop: 20,
-    fontSize: 16,
-    paddingVertical: 8,
-  },
-  convertBtn: {
-    backgroundColor: '#800080',
-    marginTop: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  convertText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
   resultText: {
     marginTop: 20,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
-  },
-  transferBtn: {
-    backgroundColor: '#009900',
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  disabledBtn: {
-    backgroundColor: '#666',
-  },
-  transferText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
 });
 

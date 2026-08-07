@@ -1,8 +1,13 @@
 // components/DotIndicator.jsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
-const DotIndicator = ({ total, currentIndex, activeColor = '#800080', inactiveColor = '#ccc' }) => {
+const DotIndicator = ({ total, currentIndex, activeColor, inactiveColor }) => {
+  const { colors } = useTheme();
+  const active = activeColor || colors.accent;
+  const inactive = inactiveColor || colors.disabled;
+
   return (
     <View style={styles.container}>
       {Array.from({ length: total }).map((_, index) => (
@@ -10,7 +15,7 @@ const DotIndicator = ({ total, currentIndex, activeColor = '#800080', inactiveCo
           key={index}
           style={[
             styles.dot,
-            { backgroundColor: currentIndex === index ? activeColor : inactiveColor },
+            { backgroundColor: currentIndex === index ? active : inactive },
           ]}
         />
       ))}

@@ -223,17 +223,16 @@ public class WebhookController {
                 }
             }
             
-            // For demo purposes, return user with ID 1 if no user found
-            System.out.println("No user found, using demo user ID 1");
-            return userRepository.findById(1L).orElse(null);
-            
+            System.out.println("No matching user found for this webhook payload");
+            return null;
+
         } catch (Exception e) {
             System.err.println("Error finding user: " + e.getMessage());
             return null;
         }
     }
 
-    // Test endpoint for webhook verification
+    // Test endpoint for webhook verification (no side effects - just confirms the route is reachable)
     @GetMapping("/paystack/test")
     public ResponseEntity<?> testWebhookEndpoint() {
         Map<String, Object> response = new HashMap<>();
@@ -242,24 +241,5 @@ public class WebhookController {
         response.put("timestamp", System.currentTimeMillis());
         response.put("endpoint", "/api/v1/webhooks/paystack");
         return ResponseEntity.ok(response);
-    }
-
-    // Test endpoint to simulate a webhook payload
-    @PostMapping("/paystack/test-simulation")
-    public ResponseEntity<?> testWebhookSimulation(@RequestBody Map<String, Object> testPayload) {
-        try {
-            System.out.println("Testing webhook simulation with payload: " + testPayload);
-            
-            // Create a mock webhook payload
-            Map<String, Object> mockWebhookData = new HashMap<>();
-            mockWebhookData.put("event", "charge.success");
-            mockWebhookData.put("data", testPayload);
-            
-            return handleChargeSuccess(mockWebhookData);
-        } catch (Exception e) {
-            System.err.println("Error in webhook simulation: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body("Error in webhook simulation: " + e.getMessage());
-        }
     }
 } 

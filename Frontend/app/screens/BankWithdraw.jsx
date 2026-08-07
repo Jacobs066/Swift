@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
+  FlatList,
   Alert,
   ScrollView,
   ActivityIndicator,
@@ -14,23 +14,44 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { useWallet } from '../context/WalletContext';
-import { Linking } from 'react-native';
+import { getBanks } from '../utils/api';
+import TextInput from '../components/TextInput';
+import Button from '../components/Button';
 
 const BankWithdrawScreen = () => {
   const router = useRouter();
   const { t } = useTranslation();
-  const { isDarkMode } = useTheme();
-  const { sendOrWithdraw, balances } = useWallet();
+  const { colors } = useTheme();
+  const { withdraw, balances } = useWallet();
 
+  const [banks, setBanks] = useState([]);
+  const [loadingBanks, setLoadingBanks] = useState(true);
+  const [selectedBank, setSelectedBank] = useState(null);
   const [fullName, setFullName] = useState('');
-  const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
   const [processing, setProcessing] = useState(false);
 
+  useEffect(() => {
+    const loadBanks = async () => {
+      try {
+        setLoadingBanks(true);
+        const response = await getBanks('bank');
+        setBanks(response.banks || []);
+      } finally {
+        setLoadingBanks(false);
+      }
+    };
+    loadBanks();
+  }, []);
+
   const handleWithdraw = async () => {
+    if (!selectedBank) {
+      Alert.alert('Error', 'Please select a bank');
+      return;
+    }
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       Alert.alert('Invalid amount');
       return;
@@ -39,31 +60,29 @@ const BankWithdrawScreen = () => {
       Alert.alert('Insufficient funds');
       return;
     }
-    
+
     try {
       setProcessing(true);
-      
-      // Use the sendOrWithdraw function with proper parameters for transaction tracking
-      sendOrWithdraw(Number(amount), 'Withdraw');
-      
-      Alert.alert('Withdrawal Successful', `₵${amount} has been withdrawn from your GHS wallet!`);
-      router.push('/screens/HomeScreen');
-      
+
+      const response = await withdraw(Number(amount), 'bank', {
+        fullName,
+        accountNumber,
+        bankCode: selectedBank.code,
+        reason: reference,
+      });
+
+      if (response.success) {
+        Alert.alert('Withdrawal Successful', `₵${amount} has been withdrawn from your GHS wallet!`, [
+          { text: 'OK', onPress: () => router.push('/screens/HomeScreen') },
+        ]);
+      } else {
+        Alert.alert('Error', response.message || 'Failed to process withdrawal');
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to process withdrawal: ' + error.toString());
     } finally {
       setProcessing(false);
     }
-  };
-
-  const colors = {
-    background: isDarkMode ? '#121212' : '#fff',
-    text: isDarkMode ? '#fff' : '#000',
-    subtext: isDarkMode ? '#ccc' : '#666',
-    inputBg: isDarkMode ? '#1e1e1e' : '#fff',
-    border: isDarkMode ? '#333' : '#ddd',
-    accent: '#800080',
-    placeholder: isDarkMode ? '#aaa' : '#999',
   };
 
   return (
@@ -72,102 +91,87 @@ const BankWithdrawScreen = () => {
         <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
-      <Text style={[styles.title, { color: colors.accent }]}>Bank Withdrawal</Text>
-      <Text style={[styles.subtitle, { color: colors.subtext }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Bank Withdrawal</Text>
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
         Enter your bank details to receive the withdrawal.
       </Text>
 
-      <Text style={[styles.label, { color: colors.accent }]}>Full Name</Text>
       <TextInput
-        style={[styles.input, { 
-          backgroundColor: colors.inputBg, 
-          borderColor: colors.border, 
-          color: colors.text 
-        }]}
+        label="Full Name"
         placeholder="John Doe"
-        placeholderTextColor={colors.placeholder}
         value={fullName}
         onChangeText={setFullName}
       />
 
-      <Text style={[styles.label, { color: colors.accent }]}>Bank Name</Text>
-      <TextInput
-        style={[styles.input, { 
-          backgroundColor: colors.inputBg, 
-          borderColor: colors.border, 
-          color: colors.text 
-        }]}
-        placeholder="e.g., GCB Bank"
-        placeholderTextColor={colors.placeholder}
-        value={bankName}
-        onChangeText={setBankName}
-      />
+      <Text style={[styles.label, { color: colors.textMuted }]}>Bank</Text>
+      {loadingBanks ? (
+        <ActivityIndicator size="small" color={colors.accent} style={{ marginBottom: 16 }} />
+      ) : (
+        <FlatList
+          data={banks}
+          keyExtractor={(item) => item.code}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.bankItem,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+                selectedBank?.code === item.code && { backgroundColor: colors.accent, borderColor: colors.accent },
+              ]}
+              onPress={() => setSelectedBank(item)}
+            >
+              <Ionicons
+                name="business-outline"
+                size={18}
+                color={selectedBank?.code === item.code ? colors.accentText : colors.accent}
+              />
+              <Text style={{ color: selectedBank?.code === item.code ? colors.accentText : colors.textPrimary, marginLeft: 8 }}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ marginBottom: 16 }}
+        />
+      )}
 
-      <Text style={[styles.label, { color: colors.accent }]}>Account Number</Text>
       <TextInput
-        style={[styles.input, { 
-          backgroundColor: colors.inputBg, 
-          borderColor: colors.border, 
-          color: colors.text 
-        }]}
+        label="Account Number"
         placeholder="1234567890"
-        placeholderTextColor={colors.placeholder}
         value={accountNumber}
         onChangeText={setAccountNumber}
         keyboardType="numeric"
       />
 
-      <Text style={[styles.label, { color: colors.accent }]}>Account Name</Text>
       <TextInput
-        style={[styles.input, { 
-          backgroundColor: colors.inputBg, 
-          borderColor: colors.border, 
-          color: colors.text 
-        }]}
+        label="Account Name"
         placeholder="Account holder name"
-        placeholderTextColor={colors.placeholder}
         value={accountName}
         onChangeText={setAccountName}
       />
 
-      <Text style={[styles.label, { color: colors.accent }]}>Amount (GHS)</Text>
       <TextInput
-        style={[styles.input, { 
-          backgroundColor: colors.inputBg, 
-          borderColor: colors.border, 
-          color: colors.text 
-        }]}
+        label="Amount (GHS)"
         placeholder="Enter amount"
-        placeholderTextColor={colors.placeholder}
         value={amount}
         onChangeText={setAmount}
         keyboardType="numeric"
       />
 
-      <Text style={[styles.label, { color: colors.accent }]}>Reference/Reason</Text>
       <TextInput
-        style={[styles.input, { 
-          backgroundColor: colors.inputBg, 
-          borderColor: colors.border, 
-          color: colors.text 
-        }]}
+        label="Reference/Reason"
         placeholder="e.g., Salary withdrawal"
-        placeholderTextColor={colors.placeholder}
         value={reference}
         onChangeText={setReference}
       />
 
-      <TouchableOpacity
-        style={[styles.withdrawButton, { backgroundColor: colors.accent }, processing && styles.disabledButton]}
+      <Button
+        title="Withdraw to Bank"
         onPress={handleWithdraw}
-        disabled={processing}
-      >
-        {processing ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.withdrawButtonText}>Withdraw to Bank</Text>
-        )}
-      </TouchableOpacity>
+        loading={processing}
+        disabled={!selectedBank || !accountNumber || !amount}
+        style={{ marginTop: 24 }}
+      />
     </ScrollView>
   );
 };
@@ -191,31 +195,18 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    marginTop: 16,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  withdrawButton: {
-    paddingVertical: 16,
-    borderRadius: 8,
+  bankItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 30,
-  },
-  withdrawButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  disabledButton: {
-    opacity: 0.6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 10,
   },
 });
 

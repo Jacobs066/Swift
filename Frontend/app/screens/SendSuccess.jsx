@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import Button from '../components/Button';
+import Card from '../components/Card';
 
 const SendSuccessScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const params = useLocalSearchParams();
-  
+
   // Get transaction details from params or use defaults
   const transactionDetails = {
     amount: params.amount || 'GHS 250.00',
@@ -68,11 +70,11 @@ Thank you for using Swift!`;
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#000' : '#fff' }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
       {/* Back Arrow */}
       <TouchableOpacity style={styles.backIcon} onPress={() => router.back()}>
-        <Ionicons name="arrow-back-circle" size={32} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={32} color={colors.accent} />
       </TouchableOpacity>
 
       {/* Success Icon */}
@@ -81,78 +83,83 @@ Thank you for using Swift!`;
         style={styles.successIcon}
       />
 
-      <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#800080' }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
         Transfer Successful!
       </Text>
 
-      <Text style={[styles.subtitle, { color: isDarkMode ? '#aaa' : '#333' }]}>
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
         Your money has been sent successfully.
       </Text>
 
         {/* Transaction Details Card */}
-        <View style={[styles.detailsCard, { backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f8f8' }]}>
-          <Text style={[styles.detailsTitle, { color: isDarkMode ? '#fff' : '#333' }]}>
+        <Card style={styles.detailsCard}>
+          <Text style={[styles.detailsTitle, { color: colors.textPrimary }]}>
             Transaction Details
           </Text>
-          
+
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>Amount:</Text>
-            <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Amount:</Text>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
               {transactionDetails.amount}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>Recipient:</Text>
-            <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Recipient:</Text>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
               {transactionDetails.recipient}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>Method:</Text>
-            <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Method:</Text>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
               {transactionDetails.method}
             </Text>
           </View>
-          
+
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>Reference:</Text>
-            <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Reference:</Text>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
               {transactionDetails.reference}
             </Text>
       </View>
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>Status:</Text>
-            <Text style={[styles.detailValue, { color: '#00E676' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>Status:</Text>
+            <Text style={[styles.detailValue, { color: colors.success }]}>
               {transactionDetails.status}
             </Text>
           </View>
-        </View>
+        </Card>
 
         {/* Action Buttons */}
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: '#800080' }]} 
+        <Button
+          title="Back to Home"
           onPress={() => router.push('/screens/HomeScreen')}
-        >
-        <Text style={styles.buttonText}>Back to Home</Text>
-      </TouchableOpacity>
+          style={styles.button}
+        />
 
-        <TouchableOpacity 
-          style={styles.secondaryButton} 
+        <Button
+          title="View Transaction History"
+          variant="secondary"
           onPress={handleViewTransaction}
-        >
-          <Text style={styles.secondaryButtonText}>View Transaction History</Text>
-        </TouchableOpacity>
+          style={styles.secondaryButton}
+        />
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleDownloadReceipt}>
-        <Text style={styles.secondaryButtonText}>Download Receipt</Text>
-      </TouchableOpacity>
+        <Button
+          title="Download Receipt"
+          variant="secondary"
+          onPress={handleDownloadReceipt}
+          style={styles.secondaryButton}
+        />
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={handleShareReceipt}>
-        <Text style={styles.secondaryButtonText}>Share Receipt</Text>
-      </TouchableOpacity>
+        <Button
+          title="Share Receipt"
+          variant="secondary"
+          onPress={handleShareReceipt}
+          style={styles.secondaryButton}
+        />
       </ScrollView>
     </View>
   );
@@ -192,11 +199,8 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   detailsCard: {
-    padding: 20,
-    borderRadius: 12,
     marginBottom: 30,
     width: '100%',
-    elevation: 2,
   },
   detailsTitle: {
     fontSize: 18,
@@ -218,30 +222,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   button: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 10,
-    marginBottom: 16,
     width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginBottom: 16,
   },
   secondaryButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#800080',
-    marginBottom: 12,
     width: '100%',
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#800080',
-    fontWeight: '600',
+    marginBottom: 12,
   },
 });

@@ -5,13 +5,13 @@ import { useTheme } from '../context/ThemeContext'; // ✅ Adjust path as needed
 
 export default function Privacy() {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
-  const styles = getStyles(isDarkMode);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back-circle" size={24} color={isDarkMode ? '#fff' : '#800080'} />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
       <Text style={styles.title}>Privacy & Data Policy</Text>
@@ -23,11 +23,11 @@ export default function Privacy() {
   );
 }
 
-const getStyles = (isDarkMode) =>
+const getStyles = (colors) =>
   StyleSheet.create({
     container: {
       padding: 20,
-      backgroundColor: isDarkMode ? '#000' : '#fff',
+      backgroundColor: colors.background,
       flexGrow: 1,
     },
     backButton: {
@@ -37,10 +37,10 @@ const getStyles = (isDarkMode) =>
       fontSize: 20,
       fontWeight: 'bold',
       marginBottom: 15,
-      color: isDarkMode ? '#fff' : '#800080',
+      color: colors.textPrimary,
     },
     text: {
       fontSize: 16,
-      color: isDarkMode ? '#ddd' : '#333',
+      color: colors.textMuted,
     },
   });

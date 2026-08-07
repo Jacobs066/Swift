@@ -146,31 +146,34 @@ public class TransactionService {
     }
 
     /**
-     * Get transactions by reference with enhanced DTO
+     * Get transactions by reference with enhanced DTO, scoped to the requesting user
      */
-    public List<TransactionHistoryDto> getTransactionsByReference(String reference) {
+    public List<TransactionHistoryDto> getTransactionsByReference(String reference, Long userId) {
         List<Transaction> transactions = transactionRepository.findByReference(reference);
         return transactions.stream()
+                .filter(t -> t.getWallet().getUser().getId().equals(userId))
                 .map(TransactionHistoryDto::new)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Get transactions by status with enhanced DTO
+     * Get transactions by status with enhanced DTO, scoped to the requesting user
      */
-    public List<TransactionHistoryDto> getTransactionsByStatus(String status) {
+    public List<TransactionHistoryDto> getTransactionsByStatus(String status, Long userId) {
         List<Transaction> transactions = transactionRepository.findByStatus(status);
         return transactions.stream()
+                .filter(t -> t.getWallet().getUser().getId().equals(userId))
                 .map(TransactionHistoryDto::new)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Get transactions by type with enhanced DTO
+     * Get transactions by type with enhanced DTO, scoped to the requesting user
      */
-    public List<TransactionHistoryDto> getTransactionsByType(String type) {
+    public List<TransactionHistoryDto> getTransactionsByType(String type, Long userId) {
         List<Transaction> transactions = transactionRepository.findByType(TransactionType.valueOf(type.toUpperCase()));
         return transactions.stream()
+                .filter(t -> t.getWallet().getUser().getId().equals(userId))
                 .map(TransactionHistoryDto::new)
                 .collect(Collectors.toList());
     }

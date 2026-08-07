@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,135 +14,75 @@ import { useWallet } from '../context/WalletContext';
 
 const TransactionHistoryScreen = () => {
   const router = useRouter();
-  const { theme } = useTheme();
-  const { transactionHistory, clearTransactionHistory } = useWallet();
-  
-  const isDarkMode = theme === 'dark';
-  const backgroundColor = isDarkMode ? '#000' : '#fff';
-  const textColor = isDarkMode ? '#fff' : '#333';
-  const cardColor = isDarkMode ? '#1c1c1e' : '#f6f6f6';
-  
+  const { colors } = useTheme();
+  const { transactionHistory, refreshTransactionHistory } = useWallet();
+
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
 
   const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await refreshTransactionHistory();
+    setRefreshing(false);
   };
 
-  // Control structure to get transaction icon based on type
+  // Control structure to get transaction icon based on the backend's transactionType enum
   const getTransactionIcon = (type) => {
     switch (type) {
-      case 'Deposit':
+      case 'DEPOSIT':
         return 'add-circle';
-      case 'Send':
-        return 'send';
-      case 'Withdraw':
+      case 'WITHDRAWAL':
         return 'remove-circle';
-      case 'Transfer':
+      case 'TRANSFER':
+        return 'send';
+      case 'CURRENCY_EXCHANGE':
         return 'swap-horizontal';
       default:
         return 'document-outline';
     }
   };
 
-  // Control structure to get transaction color based on type
-  const getTransactionColor = (type) => {
-    switch (type) {
-      case 'Deposit':
-        return '#00E676';
-      case 'Send':
-      case 'Withdraw':
-        return '#F44336';
-      case 'Transfer':
-        return '#FF9800';
-      default:
-        return '#800080';
-    }
+  // Control structure to get transaction color based on direction
+  const getTransactionColor = (transaction) => {
+    if (transaction.transactionType === 'CURRENCY_EXCHANGE') return '#FF9800';
+    return transaction.isIncoming ? colors.success : colors.error;
   };
 
-  // Control structure to filter transactions
+  // Control structure to filter transactions by the backend's transactionType enum
   const getFilteredTransactions = () => {
     if (selectedFilter === 'all') {
       return transactionHistory;
     }
-    
-    // Use forEach to filter transactions
-    const filtered = [];
-    transactionHistory.forEach(transaction => {
-      if (transaction.type === selectedFilter) {
-        filtered.push(transaction);
-      }
-    });
-    
-    return filtered;
+    return transactionHistory.filter((transaction) => transaction.transactionType === selectedFilter);
   };
 
   // Control structure to format transaction amount
-  const formatAmount = (amount, type) => {
-    const prefix = type === 'Deposit' ? '+' : '-';
-    return `${prefix}₵${parseFloat(amount).toFixed(2)}`;
-  };
-
-  // Control structure to get user-friendly transaction message
-  const getTransactionMessage = (transaction) => {
-    const { type, amount, details } = transaction;
-    
-    // Use if-else structure to determine message
-    if (type === 'Deposit') {
-      return `You deposited GHS ${amount}`;
-    } else if (type === 'Send') {
-      return `You sent GHS ${amount}`;
-    } else if (type === 'Withdraw') {
-      return `You withdrew GHS ${amount}`;
-    } else if (type === 'Transfer') {
-      return `You transferred ${amount}`;
-    } else {
-      return `Transaction: GHS ${amount}`;
-    }
-  };
-
-  const handleClearHistory = () => {
-    Alert.alert(
-      'Clear History',
-      'Are you sure you want to clear all transaction history? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: () => {
-            clearTransactionHistory();
-            Alert.alert('Success', 'Transaction history cleared');
-          },
-        },
-      ]
-    );
+  const formatAmount = (transaction) => {
+    const prefix = transaction.isIncoming ? '+' : '-';
+    return `${prefix}${transaction.currencySymbol || ''}${parseFloat(transaction.amount).toFixed(2)}`;
   };
 
   const renderTransactionItem = ({ item }) => (
-    <View style={[styles.transactionItem, { backgroundColor: cardColor }]}>
-      <View style={[styles.iconWrapper, { backgroundColor: getTransactionColor(item.type) }]}>
-        <Ionicons name={getTransactionIcon(item.type)} size={24} color="#fff" />
+    <View style={[styles.transactionItem, { backgroundColor: colors.surface }]}>
+      <View style={[styles.iconWrapper, { backgroundColor: getTransactionColor(item) }]}>
+        <Ionicons name={getTransactionIcon(item.transactionType)} size={24} color={colors.accentText} />
       </View>
       <View style={styles.details}>
-        <Text style={[styles.title, { color: textColor }]}>
-          {getTransactionMessage(item)}
+        <Text style={[styles.title, { color: colors.textPrimary }]}>
+          {item.displayType}
         </Text>
-        <Text style={[styles.timestamp, { color: isDarkMode ? '#ccc' : '#666' }]}>
-          {item.timestamp}
+        <Text style={[styles.timestamp, { color: colors.textMuted }]}>
+          {item.formattedDate} {item.formattedTime}
         </Text>
-        {item.details && (
-          <Text style={[styles.detailsText, { color: isDarkMode ? '#ccc' : '#666' }]}>
-            {item.details}
+        {item.description && (
+          <Text style={[styles.detailsText, { color: colors.textMuted }]}>
+            {item.description}
           </Text>
         )}
       </View>
       <View style={styles.rightSection}>
-        <Text style={[styles.amount, { color: textColor }]}>
-          {formatAmount(item.amount, item.type)}
+        <Text style={[styles.amount, { color: colors.textPrimary }]}>
+          {formatAmount(item)}
         </Text>
       </View>
     </View>
@@ -151,10 +90,20 @@ const TransactionHistoryScreen = () => {
 
   const renderFilterButton = (filter, label) => (
     <TouchableOpacity
-      style={[styles.filterBtn, selectedFilter === filter && styles.filterBtnActive]}
+      style={[
+        styles.filterBtn,
+        { backgroundColor: colors.surface },
+        selectedFilter === filter && { backgroundColor: colors.accent },
+      ]}
       onPress={() => setSelectedFilter(filter)}
     >
-      <Text style={[styles.filterText, selectedFilter === filter && styles.filterTextActive]}>
+      <Text
+        style={[
+          styles.filterText,
+          { color: colors.textMuted },
+          selectedFilter === filter && { color: colors.accentText },
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -163,24 +112,24 @@ const TransactionHistoryScreen = () => {
   const filteredTransactions = getFilteredTransactions();
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+        <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
       </TouchableOpacity>
 
-      <Text style={[styles.header, { color: '#800080' }]}>Transaction History</Text>
+      <Text style={[styles.header, { color: colors.textPrimary }]}>Transaction History</Text>
 
       {/* Summary */}
       <View style={styles.summaryContainer}>
-        <View style={[styles.summaryCard, { backgroundColor: cardColor }]}>
-          <Text style={[styles.summaryLabel, { color: textColor }]}>Total Transactions</Text>
-          <Text style={[styles.summaryValue, { color: '#800080' }]}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textPrimary }]}>Total Transactions</Text>
+          <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>
             {transactionHistory.length}
           </Text>
         </View>
-        <View style={[styles.summaryCard, { backgroundColor: cardColor }]}>
-          <Text style={[styles.summaryLabel, { color: textColor }]}>This Session</Text>
-          <Text style={[styles.summaryValue, { color: '#800080' }]}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.summaryLabel, { color: colors.textPrimary }]}>This Session</Text>
+          <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>
             {filteredTransactions.length}
           </Text>
         </View>
@@ -189,19 +138,11 @@ const TransactionHistoryScreen = () => {
       {/* Filter Buttons */}
       <View style={styles.filterContainer}>
         {renderFilterButton('all', 'All')}
-        {renderFilterButton('Deposit', 'Deposits')}
-        {renderFilterButton('Send', 'Sends')}
-        {renderFilterButton('Withdraw', 'Withdrawals')}
-        {renderFilterButton('Transfer', 'Transfers')}
+        {renderFilterButton('DEPOSIT', 'Deposits')}
+        {renderFilterButton('WITHDRAWAL', 'Withdrawals')}
+        {renderFilterButton('TRANSFER', 'Transfers')}
+        {renderFilterButton('CURRENCY_EXCHANGE', 'Exchanges')}
       </View>
-
-      {/* Clear History Button */}
-      {transactionHistory.length > 0 && (
-        <TouchableOpacity style={styles.clearBtn} onPress={handleClearHistory}>
-          <Ionicons name="trash-outline" size={16} color="#F44336" />
-          <Text style={styles.clearBtnText}>Clear History</Text>
-        </TouchableOpacity>
-      )}
 
       <FlatList
         data={filteredTransactions}
@@ -209,15 +150,15 @@ const TransactionHistoryScreen = () => {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#800080']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="document-outline" size={64} color="#999" />
-            <Text style={[styles.emptyTitle, { color: textColor }]}>
+            <Ionicons name="document-outline" size={64} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
               No Transactions Yet
             </Text>
-            <Text style={[styles.emptyText, { color: isDarkMode ? '#ccc' : '#666' }]}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
               Your transaction history will appear here once you start making deposits, withdrawals, transfers, or other transactions.
             </Text>
           </View>
@@ -271,30 +212,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginRight: 8,
     marginBottom: 8,
-    backgroundColor: '#f0f0f0',
   },
-  filterBtnActive: {
-    backgroundColor: '#800080',
-  },
+  filterBtnActive: {},
   filterText: {
-    color: '#666',
     fontSize: 12,
   },
-  filterTextActive: {
-    color: '#fff',
-  },
-  clearBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginBottom: 20,
-  },
-  clearBtnText: {
-    color: '#F44336',
-    fontSize: 14,
-    marginLeft: 5,
-  },
+  filterTextActive: {},
   transactionItem: {
     flexDirection: 'row',
     padding: 15,

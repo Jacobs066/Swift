@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-  useColorScheme,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -19,9 +18,9 @@ import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, d
 
 const NotificationScreen = () => {
   const router = useRouter();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const { t } = useTranslation();
-  
+
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,7 +34,7 @@ const NotificationScreen = () => {
     try {
       setLoading(true);
       const data = await getNotifications();
-      
+
       // Handle backend response format
       if (data && data.success && data.notifications) {
         setNotifications(data.notifications);
@@ -62,11 +61,11 @@ const NotificationScreen = () => {
 
   const formatTime = (timestamp) => {
     if (!timestamp) return 'Just now';
-    
+
     const now = new Date();
     const notificationTime = new Date(timestamp);
     const diffInMinutes = Math.floor((now - notificationTime) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
@@ -75,57 +74,56 @@ const NotificationScreen = () => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'deposit':
-        return { icon: 'add-circle-outline', color: '#00C851' };
-      case 'withdrawal':
-        return { icon: 'remove-circle-outline', color: '#ff4444' };
-      case 'transfer':
+      case 'DEPOSIT':
+        return { icon: 'add-circle-outline', color: colors.success };
+      case 'WITHDRAWAL':
+        return { icon: 'remove-circle-outline', color: colors.error };
+      case 'SEND':
+        return { icon: 'arrow-redo-outline', color: colors.error };
+      case 'TRANSFER':
         return { icon: 'swap-horizontal-outline', color: '#33b5e5' };
-      case 'reward':
-        return { icon: 'gift-outline', color: '#ffbb33' };
-      case 'security':
+      case 'CURRENCY_EXCHANGE':
+        return { icon: 'sync-outline', color: '#33b5e5' };
+      case 'SIGNUP':
+        return { icon: 'person-add-outline', color: colors.success };
+      case 'LOGIN':
+        return { icon: 'log-in-outline', color: colors.accent };
+      case 'PASSWORD_CHANGE':
+        return { icon: 'key-outline', color: '#ff8800' };
+      case 'SECURITY_ALERT':
         return { icon: 'shield-checkmark-outline', color: '#ff8800' };
       default:
-        return { icon: 'notifications-outline', color: '#800080' };
+        return { icon: 'notifications-outline', color: colors.accent };
     }
   };
+
+  const TRANSACTIONAL_TYPES = ['DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'SEND', 'CURRENCY_EXCHANGE'];
 
   const handleNotificationPress = async (notification) => {
     try {
       // Mark as read if not already read
       if (!notification.read) {
         await markNotificationAsRead(notification.id);
-        setNotifications(prev => 
+        setNotifications(prev =>
           prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
         );
       }
 
-      // Navigate based on notification type
-      switch (notification.type) {
-        case 'transaction':
-        case 'transfer':
-        case 'deposit':
-        case 'withdrawal':
-          router.push({ 
-            pathname: '/screens/TransactionDetails', 
-            params: { id: notification.transactionId || notification.id } 
-          });
-          break;
-        case 'reward':
-          router.push('/screens/Rewards');
-          break;
-        default:
-          router.push({ 
-            pathname: '/screens/NotificationDetail', 
-            params: {
-              title: notification.title,
-              message: notification.message,
-              time: notification.time,
-              icon: getNotificationIcon(notification.type).icon,
-              color: getNotificationIcon(notification.type).color,
-            }
-          });
-      }
+      const iconData = getNotificationIcon(notification.type);
+      router.push({
+        pathname: '/screens/NotificationDetail',
+        params: {
+          title: notification.title,
+          message: notification.message,
+          time: notification.timestamp || notification.time,
+          icon: iconData.icon,
+          color: iconData.color,
+          notificationId: notification.id,
+          transactionId: notification.referenceId || '',
+          type: notification.type,
+          read: '1',
+        }
+      });
     } catch (error) {
       Alert.alert('Error', 'Failed to process notification');
     }
@@ -151,7 +149,7 @@ const NotificationScreen = () => {
 
   const renderRightActions = (id) => (
     <TouchableOpacity
-      style={styles.deleteAction}
+      style={[styles.deleteAction, { backgroundColor: colors.error }]}
       onPress={() =>
         Alert.alert('Delete Notification', 'Are you sure?', [
           { text: 'Cancel', style: 'cancel' },
@@ -163,33 +161,35 @@ const NotificationScreen = () => {
         ])
       }
     >
-      <Ionicons name="trash-outline" size={24} color="#fff" />
+      <Ionicons name="trash-outline" size={24} color={colors.accentText} />
     </TouchableOpacity>
   );
 
   const renderItem = ({ item }) => {
     const iconData = getNotificationIcon(item.type);
-    
+
     return (
     <Swipeable renderRightActions={() => renderRightActions(item.id)}>
         <TouchableOpacity onPress={() => handleNotificationPress(item)}>
         <View
           style={[
             styles.card,
-            item.read ? styles.read : styles.unread,
+            item.read
+              ? styles.read
+              : { borderLeftWidth: 4, borderLeftColor: colors.accent },
             {
-              backgroundColor: isDarkMode ? '#1c1c1e' : '#fff',
+              backgroundColor: colors.surface,
             },
           ]}
         >
             <View style={[styles.iconContainer, { backgroundColor: iconData.color }]}>
-              <Ionicons name={iconData.icon} size={24} color="#fff" />
+              <Ionicons name={iconData.icon} size={24} color={colors.accentText} />
           </View>
           <View style={styles.messageArea}>
             <Text
               style={[
                 styles.title,
-                { color: isDarkMode ? '#f1f1f1' : '#333' },
+                { color: colors.textPrimary },
               ]}
             >
               {item.title}
@@ -197,7 +197,7 @@ const NotificationScreen = () => {
             <Text
               style={[
                 styles.message,
-                { color: isDarkMode ? '#ccc' : '#666' },
+                { color: colors.textMuted },
               ]}
             >
               {item.message}
@@ -205,7 +205,7 @@ const NotificationScreen = () => {
             <Text
               style={[
                 styles.time,
-                { color: isDarkMode ? '#999' : '#aaa' },
+                { color: colors.textMuted },
               ]}
             >
                 {formatTime(item.timestamp || item.time)}
@@ -219,11 +219,11 @@ const NotificationScreen = () => {
 
   const EmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="notifications-off-outline" size={64} color={isDarkMode ? '#666' : '#ccc'} />
-      <Text style={[styles.emptyText, { color: isDarkMode ? '#ccc' : '#666' }]}>
+      <Ionicons name="notifications-off-outline" size={64} color={colors.textMuted} />
+      <Text style={[styles.emptyText, { color: colors.textMuted }]}>
         No notifications yet
       </Text>
-      <Text style={[styles.emptySubtext, { color: isDarkMode ? '#999' : '#aaa' }]}>
+      <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
         We'll notify you when something important happens
       </Text>
     </View>
@@ -232,26 +232,56 @@ const NotificationScreen = () => {
   const FilterButtons = () => (
     <View style={styles.filterContainer}>
       <TouchableOpacity
-        style={[styles.filterButton, filter === 'all' && styles.activeFilter]}
+        style={[
+          styles.filterButton,
+          { backgroundColor: colors.surface },
+          filter === 'all' && { backgroundColor: colors.accent },
+        ]}
         onPress={() => setFilter('all')}
       >
-        <Text style={[styles.filterText, filter === 'all' && styles.activeFilterText]}>
+        <Text
+          style={[
+            styles.filterText,
+            { color: colors.textMuted },
+            filter === 'all' && { color: colors.accentText },
+          ]}
+        >
           All
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.filterButton, filter === 'unread' && styles.activeFilter]}
+        style={[
+          styles.filterButton,
+          { backgroundColor: colors.surface },
+          filter === 'unread' && { backgroundColor: colors.accent },
+        ]}
         onPress={() => setFilter('unread')}
       >
-        <Text style={[styles.filterText, filter === 'unread' && styles.activeFilterText]}>
+        <Text
+          style={[
+            styles.filterText,
+            { color: colors.textMuted },
+            filter === 'unread' && { color: colors.accentText },
+          ]}
+        >
           Unread
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.filterButton, filter === 'transactions' && styles.activeFilter]}
+        style={[
+          styles.filterButton,
+          { backgroundColor: colors.surface },
+          filter === 'transactions' && { backgroundColor: colors.accent },
+        ]}
         onPress={() => setFilter('transactions')}
       >
-        <Text style={[styles.filterText, filter === 'transactions' && styles.activeFilterText]}>
+        <Text
+          style={[
+            styles.filterText,
+            { color: colors.textMuted },
+            filter === 'transactions' && { color: colors.accentText },
+          ]}
+        >
           Transactions
         </Text>
       </TouchableOpacity>
@@ -261,26 +291,26 @@ const NotificationScreen = () => {
   const filteredNotifications = notifications.filter(notification => {
     if (filter === 'unread') return !notification.read;
     if (filter === 'transactions') {
-      return ['deposit', 'withdrawal', 'transfer'].includes(notification.type);
+      return TRANSACTIONAL_TYPES.includes(notification.type);
     }
     return true;
   });
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: isDarkMode ? '#121212' : '#f3ecf3ff' }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+            <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
           </TouchableOpacity>
-          <Text style={[styles.header, { color: isDarkMode ? '#f1f1f1' : '#800080' }]}>
+          <Text style={[styles.header, { color: colors.textPrimary }]}>
             Notifications
           </Text>
           <View style={{ width: 80 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#800080" />
-          <Text style={[styles.loadingText, { color: isDarkMode ? '#ccc' : '#666' }]}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>
             Loading notifications...
           </Text>
         </View>
@@ -292,18 +322,18 @@ const NotificationScreen = () => {
     <View
       style={[
         styles.container,
-        { backgroundColor: isDarkMode ? '#121212' : '#f3ecf3ff' },
+        { backgroundColor: colors.background },
       ]}
     >
       {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back-circle" size={24} color="#800080" />
+          <Ionicons name="arrow-back-circle" size={24} color={colors.accent} />
         </TouchableOpacity>
         <Text
           style={[
             styles.header,
-            { color: isDarkMode ? '#f1f1f1' : '#800080' },
+            { color: colors.textPrimary },
           ]}
         >
           Notifications
@@ -312,7 +342,7 @@ const NotificationScreen = () => {
           <Text
             style={[
               styles.markAll,
-              { color: isDarkMode ? '#a78bfa' : '#800080' },
+              { color: colors.accent },
             ]}
           >
             {t('markAllAsRead') || 'Mark all as read'}
@@ -335,8 +365,8 @@ const NotificationScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#800080']}
-              tintColor={isDarkMode ? '#fff' : '#800080'}
+              colors={[colors.accent]}
+              tintColor={colors.accent}
             />
           }
         />
@@ -377,19 +407,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f0f0f0',
   },
-  activeFilter: {
-    backgroundColor: '#800080',
-  },
+  activeFilter: {},
   filterText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
   },
-  activeFilterText: {
-    color: '#fff',
-  },
+  activeFilterText: {},
   card: {
     flexDirection: 'row',
     padding: 16,
@@ -424,15 +448,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
   },
-  unread: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#800080',
-  },
   read: {
     opacity: 0.6,
   },
   deleteAction: {
-    backgroundColor: '#cc0000',
     justifyContent: 'center',
     alignItems: 'center',
     width: 64,

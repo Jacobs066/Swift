@@ -12,12 +12,13 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { markNotificationAsRead, getTransactionById } from '../utils/api';
+import Button from '../components/Button';
 
 const NotificationDetail = () => {
   const router = useRouter();
   const { t } = useTranslation();
   const params = useLocalSearchParams();
-  const { isDarkMode } = useTheme();
+  const { colors } = useTheme();
 
   const [loading, setLoading] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState(null);
@@ -42,7 +43,7 @@ const NotificationDetail = () => {
     }
 
     // Load transaction details if it's a transaction notification
-    if (transactionId && ['deposit', 'withdrawal', 'transfer'].includes(type)) {
+    if (transactionId && ['DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'SEND', 'CURRENCY_EXCHANGE'].includes(type)) {
       loadTransactionDetails();
     }
   }, []);
@@ -69,28 +70,36 @@ const NotificationDetail = () => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'deposit':
-        return { icon: 'add-circle-outline', color: '#00C851' };
-      case 'withdrawal':
-        return { icon: 'remove-circle-outline', color: '#ff4444' };
-      case 'transfer':
+      case 'DEPOSIT':
+        return { icon: 'add-circle-outline', color: colors.success };
+      case 'WITHDRAWAL':
+        return { icon: 'remove-circle-outline', color: colors.error };
+      case 'SEND':
+        return { icon: 'arrow-redo-outline', color: colors.error };
+      case 'TRANSFER':
         return { icon: 'swap-horizontal-outline', color: '#33b5e5' };
-      case 'reward':
-        return { icon: 'gift-outline', color: '#ffbb33' };
-      case 'security':
+      case 'CURRENCY_EXCHANGE':
+        return { icon: 'sync-outline', color: '#33b5e5' };
+      case 'SIGNUP':
+        return { icon: 'person-add-outline', color: colors.success };
+      case 'LOGIN':
+        return { icon: 'log-in-outline', color: colors.accent };
+      case 'PASSWORD_CHANGE':
+        return { icon: 'key-outline', color: '#ff8800' };
+      case 'SECURITY_ALERT':
         return { icon: 'shield-checkmark-outline', color: '#ff8800' };
       default:
-        return { icon: 'notifications-outline', color: '#800080' };
+        return { icon: 'notifications-outline', color: colors.accent };
     }
   };
 
   const formatTime = (timestamp) => {
     if (!timestamp) return time || 'Just now';
-    
+
     const now = new Date();
     const notificationTime = new Date(timestamp);
     const diffInMinutes = Math.floor((now - notificationTime) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
@@ -116,21 +125,21 @@ const NotificationDetail = () => {
     <View
       style={[
         styles.container,
-        { backgroundColor: isDarkMode ? '#121212' : '#f3ecf3ff' },
+        { backgroundColor: colors.background },
       ]}
     >
       <TouchableOpacity onPress={handleBackToNotifications} style={styles.backBtn}>
-        <Ionicons name="arrow-back-circle" size={28} color="#800080" />
+        <Ionicons name="arrow-back-circle" size={28} color={colors.accent} />
       </TouchableOpacity>
 
       <View style={[styles.iconBox, { backgroundColor: color || iconData.color }]}>
-        <Ionicons name={icon || iconData.icon} size={36} color="#fff" />
+        <Ionicons name={icon || iconData.icon} size={36} color={colors.accentText} />
       </View>
 
       <Text
         style={[
           styles.title,
-          { color: isDarkMode ? '#f1f1f1' : '#800080' },
+          { color: colors.textPrimary },
         ]}
       >
         {title}
@@ -139,7 +148,7 @@ const NotificationDetail = () => {
       <Text
         style={[
           styles.message,
-          { color: isDarkMode ? '#ccc' : '#444' },
+          { color: colors.textMuted },
         ]}
       >
         {message}
@@ -148,7 +157,7 @@ const NotificationDetail = () => {
       <Text
         style={[
           styles.time,
-          { color: isDarkMode ? '#999' : '#888' },
+          { color: colors.textMuted },
         ]}
       >
         {formatTime(time)}
@@ -156,54 +165,51 @@ const NotificationDetail = () => {
 
       {/* Transaction Details Section */}
       {transactionDetails && (
-        <View style={[styles.transactionSection, { backgroundColor: isDarkMode ? '#1c1c1e' : '#fff' }]}>
-          <Text style={[styles.sectionTitle, { color: isDarkMode ? '#f1f1f1' : '#800080' }]}>
+        <View style={[styles.transactionSection, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             {t('transactionDetails') || 'Transaction Details'}
           </Text>
-          
+
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
               {t('amount') || 'Amount'}:
             </Text>
-            <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
               ₵{transactionDetails.amount?.toFixed(2) || '0.00'}
             </Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
               {t('status') || 'Status'}:
             </Text>
-            <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
               {transactionDetails.status || 'Completed'}
             </Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: isDarkMode ? '#ccc' : '#666' }]}>
+            <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
               {t('reference') || 'Reference'}:
             </Text>
-            <Text style={[styles.detailValue, { color: isDarkMode ? '#fff' : '#333' }]}>
+            <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
               {transactionDetails.reference || 'N/A'}
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.viewTransactionBtn, { backgroundColor: '#800080' }]}
+          <Button
+            title={t('viewFullTransaction') || 'View Full Transaction'}
             onPress={handleViewTransaction}
-          >
-            <Text style={styles.viewTransactionText}>
-              {t('viewFullTransaction') || 'View Full Transaction'}
-            </Text>
-          </TouchableOpacity>
+            style={{ marginTop: 16 }}
+          />
         </View>
       )}
 
       {/* Loading State for Transaction Details */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#800080" />
-          <Text style={[styles.loadingText, { color: isDarkMode ? '#ccc' : '#666' }]}>
+          <ActivityIndicator size="small" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>
             {t('loadingTransactionDetails') || 'Loading transaction details...'}
           </Text>
         </View>
@@ -212,21 +218,21 @@ const NotificationDetail = () => {
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: isDarkMode ? '#333' : '#f0f0f0' }]}
+          style={[styles.actionBtn, { backgroundColor: colors.surface }]}
           onPress={handleBackToNotifications}
         >
-          <Ionicons name="list-outline" size={20} color={isDarkMode ? '#fff' : '#800080'} />
-          <Text style={[styles.actionBtnText, { color: isDarkMode ? '#fff' : '#800080' }]}>
+          <Ionicons name="list-outline" size={20} color={colors.textPrimary} />
+          <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>
             {t('backToNotifications') || 'Back to Notifications'}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: '#800080' }]}
+          style={[styles.actionBtn, { backgroundColor: colors.accent }]}
           onPress={() => router.push('/screens/HomeScreen')}
         >
-          <Ionicons name="home-outline" size={20} color="#fff" />
-          <Text style={[styles.actionBtnText, { color: '#fff' }]}>
+          <Ionicons name="home-outline" size={20} color={colors.accentText} />
+          <Text style={[styles.actionBtnText, { color: colors.accentText }]}>
             {t('backToHome') || 'Back to Home'}
           </Text>
         </TouchableOpacity>
@@ -300,18 +306,6 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  viewTransactionBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  viewTransactionText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
   },
   loadingContainer: {
     alignItems: 'center',

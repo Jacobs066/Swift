@@ -1,5 +1,7 @@
 package com.swift.auth.service;
 
+import com.swift.auth.dto.AuthResponse;
+import com.swift.auth.dto.ChangePasswordRequest;
 import com.swift.auth.dto.LoginRequest;
 import com.swift.auth.dto.OtpRequest;
 import com.swift.auth.dto.SignupRequest;
@@ -8,12 +10,16 @@ import com.swift.auth.models.OtpEntry;
 import com.swift.auth.models.User;
 import com.swift.auth.repository.OtpRepository;
 import com.swift.auth.repository.UserRepository;
+import com.swift.mobileappdemo.security.JwtService;
+import com.swift.notification.enums.NotificationType;
+import com.swift.notification.service.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +42,15 @@ public class AuthService {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Transactional
     public ResponseEntity<?> signup(SignupRequest request) {
@@ -64,6 +79,9 @@ public class AuthService {
 
             // Generate and send OTP
             sendSignupOtp(user);
+
+            notificationService.createNotification(user, NotificationType.SIGNUP, "Welcome to Swift!",
+                    "Your account has been created successfully.");
 
             UserResponse userResponse = convertToUserResponse(user);
             String successMessage = String.format(
@@ -151,7 +169,7 @@ public class AuthService {
         User user = new User();
         user.setEmailOrPhone(request.getEmailOrPhone());
         user.setUsername(request.getUsername());
-        user.setPassword(request.getPassword()); // Store plain text password
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         
@@ -254,8 +272,8 @@ public class AuthService {
 
         User user = userOpt.get();
         
-        // Check password using plain text comparison
-        if (!user.getPassword().equals(request.getPassword())) {
+        // Check password
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             logger.warn("Invalid credentials for user: {}", request.getEmailOrPhone());
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid credentials"));
         }
@@ -298,12 +316,16 @@ public class AuthService {
         logger.info("OTP generated and saved for user: {}", user.getUsername());
 
         // Send OTP via email (assuming emailOrPhone is an email for now)
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmail());
-        message.setSubject("Your Login OTP Code");
-        message.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
-        mailSender.send(message);
-        logger.info("OTP sent to email: {}", user.getEmail());
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(user.getEmail());
+            message.setSubject("Your Login OTP Code");
+            message.setText("Your OTP is: " + otp + "\nIt expires in 10 minutes.");
+            mailSender.send(message);
+            logger.info("OTP sent to email: {}", user.getEmail());
+        } catch (Exception e) {
+            logger.error("Failed to send login OTP email: {}", e.getMessage());
+        }
 
         return ResponseEntity.ok(Map.of("success", true, "message", "OTP sent successfully to your email"));
     }
@@ -316,6 +338,10 @@ public class AuthService {
         }
 
         OtpEntry entry = entryOpt.get();
+        if (entry.isUsed()) {
+            logger.warn("OTP already used for email: {}", request.getEmail());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "OTP already used"));
+        }
         if (!entry.getOtp().equals(request.getOtp())) {
             logger.warn("Invalid OTP for email: {}", request.getEmail());
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid OTP"));
@@ -324,6 +350,8 @@ public class AuthService {
             logger.warn("OTP expired for email: {}", request.getEmail());
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "OTP expired"));
         }
+        entry.setUsed(true);
+        otpRepository.save(entry);
 
         // Find user by email/phone
         Optional<User> userOpt = userRepository.findByEmailOrPhone(request.getEmail());
@@ -334,7 +362,16 @@ public class AuthService {
 
         User user = userOpt.get();
         logger.info("OTP verified successfully for user: {}", user.getUsername());
-        return ResponseEntity.ok(Map.of("success", true, "message", "Login successful! Welcome " + user.getUsername()));
+        String token = jwtService.generateToken(user);
+        notificationService.createNotification(user, NotificationType.LOGIN, "New login",
+                "Your account was just signed into. If this wasn't you, please change your password.");
+        AuthResponse authResponse = new AuthResponse(
+            true,
+            "Login successful! Welcome " + user.getUsername(),
+            token,
+            convertToUserResponse(user)
+        );
+        return ResponseEntity.ok(authResponse);
     }
 
     public ResponseEntity<?> sendOtp(String phoneNumber, String purpose) {
@@ -413,5 +450,31 @@ public class AuthService {
             logger.error("Failed to resend OTP: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Failed to resend OTP: " + e.getMessage()));
         }
+    }
+
+    @Transactional
+    public ResponseEntity<?> changePassword(Long userId, ChangePasswordRequest request) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "User not found"));
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "New passwords do not match"));
+        }
+
+        User user = userOpt.get();
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Current password is incorrect"));
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        logger.info("Password changed for user: {}", user.getUsername());
+
+        notificationService.createNotification(user, NotificationType.SECURITY_ALERT, "Password changed",
+                "Your account password was just changed. If this wasn't you, contact support immediately.");
+
+        return ResponseEntity.ok(Map.of("success", true, "message", "Password changed successfully"));
     }
 }
